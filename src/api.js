@@ -1,9 +1,6 @@
-// Central API helper for the admin panel.
-// Change this if your backend runs elsewhere. Admin runs on a computer,
-// so "localhost" correctly points at your backend on the same machine.
-export const API_URL = "http://localhost:3000";
+// The deployed backend on Render.
+export const API_URL = "https://sheba-pai.onrender.com";
 
-// Authenticated fetch: attaches the stored admin token.
 export async function apiFetch(path, options = {}) {
   const token = localStorage.getItem("adminToken");
   const res = await fetch(`${API_URL}${path}`, {
