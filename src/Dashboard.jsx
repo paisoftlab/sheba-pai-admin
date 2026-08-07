@@ -1,38 +1,22 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "./api";
 import Verifications from "./Verifications";
+import ServiceManager from "./ServiceManager";
+import Submissions from "./Submissions";
 
 export default function Dashboard({ onLogout }) {
-  const [tab, setTab] = useState("verify"); // "verify" | "manage"
+  const [tab, setTab] = useState("verify");
   const [roles, setRoles] = useState([]);
-  const [services, setServices] = useState([]);
-  const [loading, setLoading] = useState(true);
-
   const [roleName, setRoleName] = useState("");
   const [roleBangla, setRoleBangla] = useState("");
-  const [svcName, setSvcName] = useState("");
-  const [svcBangla, setSvcBangla] = useState("");
-  const [svcRoles, setSvcRoles] = useState([]);
 
-  async function loadAll() {
-    setLoading(true);
+  async function loadRoles() {
     try {
-      const [rRes, sRes] = await Promise.all([
-        apiFetch("/api/roles"),
-        apiFetch("/api/services"),
-      ]);
-      setRoles(await rRes.json());
-      setServices(await sRes.json());
-    } catch (err) {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
+      const res = await apiFetch("/api/roles");
+      setRoles(await res.json());
+    } catch (e) {}
   }
-
-  useEffect(() => {
-    loadAll();
-  }, []);
+  useEffect(() => { loadRoles(); }, []);
 
   function logout() {
     localStorage.removeItem("adminToken");
@@ -47,42 +31,22 @@ export default function Dashboard({ onLogout }) {
       method: "POST",
       body: JSON.stringify({ name: roleName, nameBangla: roleBangla }),
     });
-    if (res.ok) {
-      setRoleName(""); setRoleBangla(""); loadAll();
-    } else {
-      const d = await res.json(); alert(d.error || "Failed");
-    }
+    if (res.ok) { setRoleName(""); setRoleBangla(""); loadRoles(); }
+    else { const d = await res.json(); alert(d.error || "Failed"); }
   }
+
   async function deleteRole(id) {
     if (!confirm("Delete this role?")) return;
     const res = await apiFetch(`/api/roles/${id}`, { method: "DELETE" });
-    if (res.ok) loadAll();
+    if (res.ok) loadRoles();
   }
-  function toggleSvcRole(name) {
-    setSvcRoles((prev) =>
-      prev.includes(name) ? prev.filter((r) => r !== name) : [...prev, name]
-    );
-  }
-  async function addService(e) {
-    e.preventDefault();
-    if (!svcName || !svcBangla || svcRoles.length === 0) {
-      alert("Fill name, Bangla name, and pick at least one role."); return;
-    }
-    const res = await apiFetch("/api/services", {
-      method: "POST",
-      body: JSON.stringify({ name: svcName, nameBangla: svcBangla, helperRoles: svcRoles }),
-    });
-    if (res.ok) {
-      setSvcName(""); setSvcBangla(""); setSvcRoles([]); loadAll();
-    } else {
-      const d = await res.json(); alert(d.error || "Failed");
-    }
-  }
-  async function deleteService(id) {
-    if (!confirm("Delete this service?")) return;
-    const res = await apiFetch(`/api/services/${id}`, { method: "DELETE" });
-    if (res.ok) loadAll();
-  }
+
+  const TABS = [
+    { key: "verify", label: "Identity verification" },
+    { key: "submissions", label: "Requirement proofs" },
+    { key: "services", label: "Services & requirements" },
+    { key: "roles", label: "Roles" },
+  ];
 
   return (
     <div className="dash">
@@ -92,77 +56,42 @@ export default function Dashboard({ onLogout }) {
       </header>
 
       <div className="tabs">
-        <button
-          className={tab === "verify" ? "tab active" : "tab"}
-          onClick={() => setTab("verify")}
-        >
-          Verifications
-        </button>
-        <button
-          className={tab === "manage" ? "tab active" : "tab"}
-          onClick={() => setTab("manage")}
-        >
-          Services & Roles
-        </button>
+        {TABS.map((tb) => (
+          <button key={tb.key}
+            className={tab === tb.key ? "tab active" : "tab"}
+            onClick={() => setTab(tb.key)}>
+            {tb.label}
+          </button>
+        ))}
       </div>
 
       {tab === "verify" && <Verifications />}
+      {tab === "submissions" && <Submissions />}
+      {tab === "services" && <ServiceManager />}
 
-      {tab === "manage" && (
-        loading ? <div className="center">Loading...</div> : (
-        <div className="grid">
-          <section className="panel">
-            <h2>Helper Roles</h2>
-            <p className="hint">The kinds of helpers (Nurse, Doctor, Staff...).</p>
-            <form className="row" onSubmit={addRole}>
-              <input className="input" placeholder="Name (English)" value={roleName} onChange={(e) => setRoleName(e.target.value)} />
-              <input className="input" placeholder="নাম (বাংলা)" value={roleBangla} onChange={(e) => setRoleBangla(e.target.value)} />
-              <button className="btn">Add</button>
-            </form>
-            <ul className="list">
-              {roles.map((r) => (
-                <li key={r._id} className="item">
-                  <span><strong>{r.nameBangla}</strong> <span className="muted">({r.name})</span></span>
-                  <button className="del" onClick={() => deleteRole(r._id)}>✕</button>
-                </li>
-              ))}
-              {roles.length === 0 && <li className="muted">No roles yet.</li>}
-            </ul>
-          </section>
-
-          <section className="panel">
-            <h2>Services</h2>
-            <p className="hint">What a patient can request. Pick which roles fulfill each.</p>
-            <form className="col" onSubmit={addService}>
-              <input className="input" placeholder="Service name (English)" value={svcName} onChange={(e) => setSvcName(e.target.value)} />
-              <input className="input" placeholder="সেবার নাম (বাংলা)" value={svcBangla} onChange={(e) => setSvcBangla(e.target.value)} />
-              <div className="rolepick">
-                <span className="muted">Served by:</span>
-                {roles.map((r) => (
-                  <label key={r._id} className="chip">
-                    <input type="checkbox" checked={svcRoles.includes(r.name)} onChange={() => toggleSvcRole(r.name)} />
-                    {r.nameBangla}
-                  </label>
-                ))}
-                {roles.length === 0 && <span className="muted">Add a role first.</span>}
-              </div>
-              <button className="btn">Add Service</button>
-            </form>
-            <ul className="list">
-              {services.map((s) => (
-                <li key={s._id} className="item">
-                  <span>
-                    <strong>{s.nameBangla}</strong> <span className="muted">({s.name})</span><br />
-                    <span className="muted small">→ {s.helperRoles.join(", ")}</span>
-                  </span>
-                  <button className="del" onClick={() => deleteService(s._id)}>✕</button>
-                </li>
-              ))}
-              {services.length === 0 && <li className="muted">No services yet.</li>}
-            </ul>
-          </section>
-        </div>
-        )
+      {tab === "roles" && (
+        <section className="panel">
+          <h2>Helper roles (professions)</h2>
+          <p className="hint">
+            A helper picks one of these. They then only see services matching it.
+          </p>
+          <form className="row" onSubmit={addRole}>
+            <input className="input" placeholder="Name (English)" value={roleName}
+              onChange={(e) => setRoleName(e.target.value)} />
+            <input className="input" placeholder="নাম (বাংলা)" value={roleBangla}
+              onChange={(e) => setRoleBangla(e.target.value)} />
+            <button className="btn">Add</button>
+          </form>
+          <ul className="list">
+            {roles.map((r) => (
+              <li key={r._id} className="item">
+                <span><strong>{r.nameBangla}</strong> <span className="muted">({r.name})</span></span>
+                <button className="del" onClick={() => deleteRole(r._id)}>✕</button>
+              </li>
+            ))}
+            {roles.length === 0 && <li className="muted">No roles yet.</li>}
+          </ul>
+        </section>
       )}
     </div>
   );
