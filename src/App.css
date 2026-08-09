@@ -324,3 +324,12 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.3px;
 }
+
+/* ---------- Patient verification selector ---------- */
+.pvBox {
+  background: #FEF9F3;
+  border: 1px solid #FDE68A;
+  border-radius: 10px;
+  padding: 12px;
+  margin-top: 10px;
+}

@@ -165,6 +165,41 @@ function PricingEditor({ sub, onSave }) {
 }
 
 /* -------- Inline name editor (defined OUTSIDE) -------- */
+const PV_LABEL = {
+  none: "No patient documents needed",
+  submit: "Patient must upload before requesting",
+  approved: "Patient must be approved before requesting",
+};
+
+function PatientVerificationEditor({ service, onSave }) {
+  const [mode, setMode] = useState(service.patientVerificationMode || "none");
+  const [dirty, setDirty] = useState(false);
+
+  async function save() {
+    await onSave(service._id, { patientVerificationMode: mode });
+    setDirty(false);
+  }
+
+  return (
+    <div className="pvBox">
+      <div className="pricingRow">
+        <label className="pLabel">Patient check</label>
+        <select
+          className="input sm"
+          value={mode}
+          onChange={(e) => { setMode(e.target.value); setDirty(true); }}
+        >
+          <option value="none">None (one-tap)</option>
+          <option value="submit">Submit docs before request</option>
+          <option value="approved">Approved before request</option>
+        </select>
+        {dirty && <button className="btn sm" onClick={save}>Save</button>}
+      </div>
+      <p className="muted small" style={{ marginTop: 4 }}>{PV_LABEL[mode]}</p>
+    </div>
+  );
+}
+
 function NameEditor({ initName, initBangla, onSave, onCancel }) {
   const [name, setName] = useState(initName);
   const [bangla, setBangla] = useState(initBangla);
@@ -379,6 +414,8 @@ export default function ServiceManager() {
                 onFieldChange={setReqField} onAdd={addRequirement}
                 onEdit={editRequirement} onDelete={delRequirement} />
 
+              <PatientVerificationEditor service={main} onSave={editService} />
+
               <div className="subSection">
                 <strong>Sub-services</strong>
                 {main.subServices.map((sub) => (
@@ -401,6 +438,7 @@ export default function ServiceManager() {
                     </div>
 
                     <PricingEditor sub={sub} onSave={savePricing} />
+                    <PatientVerificationEditor service={sub} onSave={editService} />
 
                     <RequirementBlock
                       service={sub} scopeLabel="specific to this sub-service"
