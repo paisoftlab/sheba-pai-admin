@@ -9,6 +9,8 @@ export default function Dashboard({ onLogout }) {
   const [roles, setRoles] = useState([]);
   const [roleName, setRoleName] = useState("");
   const [roleBangla, setRoleBangla] = useState("");
+  // pending counts for tab badges
+  const [pending, setPending] = useState({ verify: 0, submissions: 0 });
 
   async function loadRoles() {
     try {
@@ -16,7 +18,18 @@ export default function Dashboard({ onLogout }) {
       setRoles(await res.json());
     } catch (e) {}
   }
-  useEffect(() => { loadRoles(); }, []);
+  async function loadCounts() {
+    try {
+      const [v, s] = await Promise.all([
+        apiFetch("/api/admin/verifications?status=pending"),
+        apiFetch("/api/admin/submissions?status=pending"),
+      ]);
+      const vd = v.ok ? await v.json() : [];
+      const sd = s.ok ? await s.json() : [];
+      setPending({ verify: vd.length || 0, submissions: sd.length || 0 });
+    } catch (e) {}
+  }
+  useEffect(() => { loadRoles(); loadCounts(); }, []);
 
   function logout() {
     localStorage.removeItem("adminToken");
@@ -36,60 +49,72 @@ export default function Dashboard({ onLogout }) {
   }
 
   async function deleteRole(id) {
-    if (!confirm("Delete this role?")) return;
+    if (!confirm("Delete this role? Helpers using it may be affected.")) return;
     const res = await apiFetch(`/api/roles/${id}`, { method: "DELETE" });
     if (res.ok) loadRoles();
   }
 
   const TABS = [
-    { key: "verify", label: "Identity verification" },
-    { key: "submissions", label: "Requirement proofs" },
-    { key: "services", label: "Services & requirements" },
-    { key: "roles", label: "Roles" },
+    { key: "verify", label: "Identity checks", badge: pending.verify },
+    { key: "submissions", label: "Document proofs", badge: pending.submissions },
+    { key: "services", label: "Services", badge: null },
+    { key: "roles", label: "Professions", badge: null },
   ];
 
   return (
-    <div className="dash">
+    <div className="shell">
       <header className="topbar">
-        <h1 className="brand-sm">সেবা পাই — Admin</h1>
-        <button className="btn-ghost" onClick={logout}>Logout</button>
+        <div className="topbar-brand">
+          <div className="mark">সে</div>
+          <div>
+            <h1>সেবা পাই</h1>
+            <div className="tag">Admin Console</div>
+          </div>
+        </div>
+        <button className="btn-ghost" onClick={logout}>Sign out</button>
       </header>
 
-      <div className="tabs">
+      <nav className="tabs">
         {TABS.map((tb) => (
           <button key={tb.key}
             className={tab === tb.key ? "tab active" : "tab"}
-            onClick={() => setTab(tb.key)}>
+            onClick={() => { setTab(tb.key); if (tb.key === "verify" || tb.key === "submissions") loadCounts(); }}>
             {tb.label}
+            {tb.badge !== null && (
+              <span className={`count ${tb.badge === 0 ? "zero" : ""}`}>{tb.badge}</span>
+            )}
           </button>
         ))}
-      </div>
+      </nav>
 
-      {tab === "verify" && <Verifications />}
-      {tab === "submissions" && <Submissions />}
+      {tab === "verify" && <Verifications onChange={loadCounts} />}
+      {tab === "submissions" && <Submissions onChange={loadCounts} />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (
         <section className="panel">
-          <h2>Helper roles (professions)</h2>
-          <p className="hint">
-            A helper picks one of these. They then only see services matching it.
-          </p>
-          <form className="row" onSubmit={addRole}>
+          <div className="panel-head">
+            <h2>Professions</h2>
+            <p className="hint">
+              A caregiver picks one profession when they join. They then only see the
+              services you've assigned to that profession.
+            </p>
+          </div>
+          <form className="row" onSubmit={addRole} style={{ marginBottom: 18 }}>
             <input className="input" placeholder="Name (English)" value={roleName}
-              onChange={(e) => setRoleName(e.target.value)} />
+              onChange={(e) => setRoleName(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
             <input className="input" placeholder="নাম (বাংলা)" value={roleBangla}
-              onChange={(e) => setRoleBangla(e.target.value)} />
-            <button className="btn">Add</button>
+              onChange={(e) => setRoleBangla(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+            <button className="btn">Add profession</button>
           </form>
           <ul className="list">
             {roles.map((r) => (
-              <li key={r._id} className="item">
-                <span><strong>{r.nameBangla}</strong> <span className="muted">({r.name})</span></span>
-                <button className="del" onClick={() => deleteRole(r._id)}>✕</button>
+              <li key={r._id} className="list-item">
+                <span><strong>{r.nameBangla}</strong> <span className="muted">· {r.name}</span></span>
+                <button className="icon-btn" onClick={() => deleteRole(r._id)} title="Delete">✕</button>
               </li>
             ))}
-            {roles.length === 0 && <li className="muted">No roles yet.</li>}
+            {roles.length === 0 && <li className="muted small">No professions yet. Add one above.</li>}
           </ul>
         </section>
       )}

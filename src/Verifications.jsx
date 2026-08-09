@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "./api";
 
-export default function Verifications() {
+export default function Verifications({ onChange }) {
   const [pending, setPending] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -19,7 +19,7 @@ export default function Verifications() {
   async function decide(id, decision) {
     let rejectionReason = null;
     if (decision === "reject") {
-      rejectionReason = prompt("Reason for rejection (helper will see this):");
+      rejectionReason = prompt("Reason for rejection (the caregiver will see this):");
       if (rejectionReason === null) return;
     }
     setBusyId(id);
@@ -28,19 +28,21 @@ export default function Verifications() {
         method: "PATCH",
         body: JSON.stringify({ decision, rejectionReason }),
       });
-      if (res.ok) setPending((prev) => prev.filter((p) => p._id !== id));
+      if (res.ok) { setPending((prev) => prev.filter((p) => p._id !== id)); onChange && onChange(); }
       else { const d = await res.json(); alert(d.error || "Failed"); }
     } catch (err) { alert(err.message); } finally { setBusyId(null); }
   }
 
-  if (loading) return <div className="center">Loading verifications...</div>;
+  if (loading) return <div className="center">Loading identity checks…</div>;
 
   if (pending.length === 0) {
     return (
       <div className="panel">
-        <h2>Pending Verifications</h2>
-        <p className="muted">No helpers waiting for review. 🎉</p>
-        <button className="btn-ghost" onClick={load} style={{ marginTop: 12 }}>Refresh</button>
+        <div className="empty-state">
+          <div className="big">✅</div>
+          No identity checks waiting for review.
+          <div style={{ marginTop: 14 }}><button className="btn-ghost" onClick={load}>Refresh</button></div>
+        </div>
       </div>
     );
   }
@@ -49,63 +51,62 @@ export default function Verifications() {
     url ? (
       <div className="img-block">
         <span className="img-label">{label}</span>
-        <a href={url} target="_blank" rel="noreferrer">
-          <img src={url} alt={label} className="verify-img" />
-        </a>
+        <a href={url} target="_blank" rel="noreferrer"><img src={url} alt={label} className="doc-img" /></a>
       </div>
     ) : null;
 
   return (
     <div>
-      <div className="verify-head">
-        <h2>Pending Verifications ({pending.length})</h2>
+      <div className="panel-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2>Identity checks ({pending.length})</h2>
         <button className="btn-ghost" onClick={load}>Refresh</button>
       </div>
 
       {pending.map((p) => (
-        <div key={p._id} className="verify-card">
-          <div className="verify-info">
-            <h3>{p.fullName || p.user?.name || "Unknown"}</h3>
-            <p className="muted">Phone: {p.user?.phone}</p>
-            <p className="muted">NID #: {p.nidNumber || "—"}</p>
-            <p className="muted">Roles: {p.roles?.join(", ") || "—"}</p>
-            <p className="muted">Consent: {p.consentAccepted ? "✓ accepted" : "✗ not accepted"}</p>
+        <div key={p._id} className="review">
+          <div className="review-head">
+            <div className="review-who">
+              <div className="avatar">{(p.fullName || p.user?.name || "?")[0]}</div>
+              <div>
+                <div className="review-name">{p.fullName || p.user?.name || "Unknown"}</div>
+                <div className="review-sub">{p.user?.phone}</div>
+              </div>
+            </div>
           </div>
 
-          <div className="verify-images">
+          <div className="review-meta">
+            <strong>NID #:</strong> {p.nidNumber || "—"} &nbsp;·&nbsp;
+            <strong>Profession:</strong> {p.profession || p.roles?.join(", ") || "—"} &nbsp;·&nbsp;
+            <strong>Consent:</strong> {p.consentAccepted ? "✓ accepted" : "✗ not accepted"}
+          </div>
+
+          <div className="imgs">
             <Img url={p.nidFrontUrl} label="NID Front" />
             <Img url={p.nidBackUrl} label="NID Back" />
-
             <div className="img-block">
               <span className="img-label">Selfies ({p.selfieUrls?.length || 0})</span>
-              <div className="selfie-row">
+              <div className="thumbs">
                 {(p.selfieUrls || []).map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noreferrer">
-                    <img src={url} alt={`selfie ${i}`} className="verify-img sm" />
-                  </a>
+                  <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`selfie ${i}`} className="doc-img sm" /></a>
                 ))}
               </div>
             </div>
-
             <Img url={p.policeClearanceUrl} label="Police Clearance" />
-
             {p.certificateUrls?.length > 0 && (
               <div className="img-block">
                 <span className="img-label">Certificates ({p.certificateUrls.length})</span>
-                <div className="selfie-row">
+                <div className="thumbs">
                   {p.certificateUrls.map((url, i) => (
-                    <a key={i} href={url} target="_blank" rel="noreferrer">
-                      <img src={url} alt={`cert ${i}`} className="verify-img sm" />
-                    </a>
+                    <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`cert ${i}`} className="doc-img sm" /></a>
                   ))}
                 </div>
               </div>
             )}
           </div>
 
-          <div className="verify-actions">
-            <button className="btn" disabled={busyId === p._id} onClick={() => decide(p._id, "approve")}>✓ Approve</button>
-            <button className="btn-reject" disabled={busyId === p._id} onClick={() => decide(p._id, "reject")}>✕ Reject</button>
+          <div className="review-actions">
+            <button className="btn btn-success" disabled={busyId === p._id} onClick={() => decide(p._id, "approve")}>✓ Approve</button>
+            <button className="btn-danger" disabled={busyId === p._id} onClick={() => decide(p._id, "reject")}>✕ Reject</button>
           </div>
         </div>
       ))}

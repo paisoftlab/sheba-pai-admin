@@ -18,22 +18,13 @@ export default function Login({ onLogin }) {
         body: JSON.stringify({ phone, password }),
       });
       const data = await res.json();
-
-      if (!res.ok) {
-        setError(data.error || "Login failed");
-        return;
-      }
-      // Only admins may use this panel
-      if (data.user.role !== "admin") {
-        setError("This account is not an admin.");
-        return;
-      }
-
+      if (!res.ok) { setError(data.error || "Login failed"); return; }
+      if (data.user.role !== "admin") { setError("This account is not an admin."); return; }
       localStorage.setItem("adminToken", data.token);
       localStorage.setItem("adminUser", JSON.stringify(data.user));
       onLogin();
     } catch (err) {
-      setError("Could not connect to server. Is the backend running?");
+      setError("Could not connect to the server. Is the backend running?");
     } finally {
       setLoading(false);
     }
@@ -42,27 +33,27 @@ export default function Login({ onLogin }) {
   return (
     <div className="login-wrap">
       <form className="login-card" onSubmit={handleLogin}>
-        <h1 className="brand">সেবা পাই</h1>
-        <p className="subtitle">Admin Panel</p>
+        <div className="login-brand">
+          <div className="mark">সে</div>
+          <div className="brand">সেবা পাই</div>
+          <p className="subtitle">Admin Console</p>
+        </div>
 
-        <input
-          className="input"
-          placeholder="Phone"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-        />
-        <input
-          className="input"
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-        />
+        <label className="field">
+          <span className="field-label">Phone</span>
+          <input className="input" placeholder="01XXXXXXXXX"
+            value={phone} onChange={(e) => setPhone(e.target.value)} />
+        </label>
+        <label className="field">
+          <span className="field-label">Password</span>
+          <input className="input" type="password" placeholder="Your password"
+            value={password} onChange={(e) => setPassword(e.target.value)} />
+        </label>
 
         {error && <div className="error">{error}</div>}
 
-        <button className="btn" disabled={loading}>
-          {loading ? "..." : "Login"}
+        <button className="btn block" disabled={loading}>
+          {loading ? "Signing in…" : "Sign in"}
         </button>
       </form>
     </div>

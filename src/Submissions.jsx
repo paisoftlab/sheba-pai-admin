@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "./api";
 
-export default function Submissions() {
+export default function Submissions({ onChange }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
@@ -28,64 +28,64 @@ export default function Submissions() {
         method: "PATCH",
         body: JSON.stringify({ decision, rejectionReason }),
       });
-      if (res.ok) setItems((p) => p.filter((x) => x._id !== id));
+      if (res.ok) { setItems((p) => p.filter((x) => x._id !== id)); onChange && onChange(); }
       else { const d = await res.json(); alert(d.error || "Failed"); }
     } catch (e) { alert(e.message); } finally { setBusyId(null); }
   }
 
-  if (loading) return <div className="center">Loading submissions...</div>;
+  if (loading) return <div className="center">Loading document proofs…</div>;
 
   if (items.length === 0) {
     return (
       <div className="panel">
-        <h2>Requirement submissions</h2>
-        <p className="muted">Nothing waiting for review. 🎉</p>
-        <button className="btn-ghost" onClick={load} style={{ marginTop: 12 }}>Refresh</button>
+        <div className="empty-state">
+          <div className="big">✅</div>
+          No document proofs waiting for review.
+          <div style={{ marginTop: 14 }}><button className="btn-ghost" onClick={load}>Refresh</button></div>
+        </div>
       </div>
     );
   }
 
   return (
     <div>
-      <div className="verify-head">
-        <h2>Requirement submissions ({items.length})</h2>
+      <div className="panel-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <h2>Document proofs ({items.length})</h2>
         <button className="btn-ghost" onClick={load}>Refresh</button>
       </div>
 
       {items.map((s) => (
-        <div key={s._id} className="verify-card">
-          <div className="verify-info">
-            <h3>{s.user?.name || "Unknown"}</h3>
-            <p className="muted">
-              {s.user?.phone} · <span className={`tag ${s.user?.role}`}>{s.user?.role}</span>
-            </p>
-            <p className="muted">
-              Service: <strong>{s.service?.nameBangla}</strong> ({s.service?.name})
-            </p>
-            <p className="muted">
-              Requirement: <strong>{s.requirement?.titleBangla}</strong> ({s.requirement?.title})
-              {s.requirement?.isMandatory
-                ? <span className="must" style={{ marginLeft: 8 }}>must</span>
-                : <span className="opt" style={{ marginLeft: 8 }}>optional</span>}
-            </p>
+        <div key={s._id} className="review">
+          <div className="review-head">
+            <div className="review-who">
+              <div className="avatar">{(s.user?.name || "?")[0]}</div>
+              <div>
+                <div className="review-name">{s.user?.name || "Unknown"}</div>
+                <div className="review-sub">
+                  {s.user?.phone} · <span className={`pill pill-${s.user?.role === "patient" ? "patient" : "helper"}`}>{s.user?.role}</span>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <div className="selfie-row" style={{ margin: "14px 0" }}>
+          <div className="review-meta">
+            <strong>Service:</strong> {s.service?.nameBangla} <span className="muted small">· {s.service?.name}</span><br />
+            <strong>Document:</strong> {s.requirement?.titleBangla} <span className="muted small">· {s.requirement?.title}</span>
+            {" "}{s.requirement?.isMandatory
+              ? <span className="pill pill-must">Must</span>
+              : <span className="pill pill-opt">Optional</span>}
+          </div>
+
+          <div className="thumbs" style={{ margin: "14px 0" }}>
             {(s.imageUrls || []).map((url, i) => (
-              <a key={i} href={url} target="_blank" rel="noreferrer">
-                <img src={url} alt={`proof ${i}`} className="verify-img" />
-              </a>
+              <a key={i} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`proof ${i}`} className="doc-img" /></a>
             ))}
-            {(!s.imageUrls || s.imageUrls.length === 0) && (
-              <span className="muted">No images uploaded</span>
-            )}
+            {(!s.imageUrls || s.imageUrls.length === 0) && <span className="muted">No images uploaded</span>}
           </div>
 
-          <div className="verify-actions">
-            <button className="btn" disabled={busyId === s._id}
-              onClick={() => decide(s._id, "approve")}>✓ Approve</button>
-            <button className="btn-reject" disabled={busyId === s._id}
-              onClick={() => decide(s._id, "reject")}>✕ Reject</button>
+          <div className="review-actions">
+            <button className="btn btn-success" disabled={busyId === s._id} onClick={() => decide(s._id, "approve")}>✓ Approve</button>
+            <button className="btn-danger" disabled={busyId === s._id} onClick={() => decide(s._id, "reject")}>✕ Reject</button>
           </div>
         </div>
       ))}

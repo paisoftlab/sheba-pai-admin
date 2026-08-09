@@ -1,106 +1,76 @@
 import { useState, useEffect } from "react";
 import { apiFetch } from "./api";
 
-const PRICING_LABEL = {
-  admin_fixed: "Fixed by admin (locked)",
-  admin_default: "Default, helper can edit",
-  helper_flexible: "Helper sets price",
-};
+/* All sub-components are defined OUTSIDE the main component so inputs keep focus. */
 
-/* -------- Requirement block (defined OUTSIDE to keep input focus) -------- */
-function RequirementBlock({ service, scopeLabel, list, form, onFieldChange, onAdd, onEdit, onDelete }) {
-  const f = form || {};
-  const [editingId, setEditingId] = useState(null);
-  const [edit, setEdit] = useState({});
+/* ---------- Small building blocks ---------- */
 
-  function startEdit(r) {
-    setEditingId(r._id);
-    setEdit({
-      title: r.title, titleBangla: r.titleBangla,
-      forWhom: r.forWhom, isMandatory: r.isMandatory, maxPhotos: r.maxPhotos,
-    });
+function Pill({ kind, children }) {
+  return <span className={`pill pill-${kind}`}>{children}</span>;
+}
+
+/* One requirement line (view + inline edit) */
+function RequirementRow({ r, serviceId, onEdit, onDelete }) {
+  const [editing, setEditing] = useState(false);
+  const [e, setE] = useState({});
+  function start() {
+    setEditing(true);
+    setE({ title: r.title, titleBangla: r.titleBangla, forWhom: r.forWhom, isMandatory: r.isMandatory, maxPhotos: r.maxPhotos });
   }
-  async function saveEdit(r) {
-    await onEdit(r._id, service._id, edit);
-    setEditingId(null);
-  }
+  async function save() { await onEdit(r._id, serviceId, e); setEditing(false); }
 
-  return (
-    <div className="reqBlock">
-      <div className="reqHead">
-        <strong>Requirements</strong>
-        <span className="muted small"> — {scopeLabel}</span>
+  if (editing) {
+    return (
+      <div className="req">
+        <input className="input sm" value={e.titleBangla} onChange={(ev) => setE({ ...e, titleBangla: ev.target.value })} placeholder="বাংলা" />
+        <input className="input sm" value={e.title} onChange={(ev) => setE({ ...e, title: ev.target.value })} placeholder="English" />
+        <select className="input sm" value={e.forWhom} onChange={(ev) => setE({ ...e, forWhom: ev.target.value })}>
+          <option value="helper">Caregiver</option><option value="patient">Patient</option>
+        </select>
+        <select className="input sm" value={e.isMandatory ? "y" : "n"} onChange={(ev) => setE({ ...e, isMandatory: ev.target.value === "y" })}>
+          <option value="y">Mandatory</option><option value="n">Optional</option>
+        </select>
+        <select className="input sm" value={e.maxPhotos} onChange={(ev) => setE({ ...e, maxPhotos: Number(ev.target.value) })}>
+          <option value={1}>1📷</option><option value={2}>2📷</option><option value={3}>3📷</option>
+        </select>
+        <button className="btn sm" onClick={save}>Save</button>
+        <button className="btn-ghost sm" onClick={() => setEditing(false)}>Cancel</button>
       </div>
+    );
+  }
+  return (
+    <div className="req">
+      <Pill kind={r.forWhom === "patient" ? "patient" : "helper"}>{r.forWhom === "patient" ? "Patient" : "Caregiver"}</Pill>
+      <span className="req-title">{r.titleBangla} <span className="muted small">· {r.title}</span></span>
+      <Pill kind={r.isMandatory ? "must" : "opt"}>{r.isMandatory ? "Must" : "Optional"}</Pill>
+      <Pill kind="photos">{r.maxPhotos}📷</Pill>
+      <button className="link-btn" onClick={start}>Edit</button>
+      <button className="icon-btn" onClick={() => onDelete(r._id, serviceId)}>✕</button>
+    </div>
+  );
+}
 
-      {list.length === 0 && <p className="muted small">None yet.</p>}
-      <ul className="reqList">
-        {list.map((r) => (
-          <li key={r._id} className="reqItem">
-            {editingId === r._id ? (
-              <>
-                <input className="input sm" value={edit.title}
-                  onChange={(e) => setEdit({ ...edit, title: e.target.value })} />
-                <input className="input sm" value={edit.titleBangla}
-                  onChange={(e) => setEdit({ ...edit, titleBangla: e.target.value })} />
-                <select className="input sm" value={edit.forWhom}
-                  onChange={(e) => setEdit({ ...edit, forWhom: e.target.value })}>
-                  <option value="helper">helper</option>
-                  <option value="patient">patient</option>
-                </select>
-                <select className="input sm" value={edit.isMandatory ? "yes" : "no"}
-                  onChange={(e) => setEdit({ ...edit, isMandatory: e.target.value === "yes" })}>
-                  <option value="yes">mandatory</option>
-                  <option value="no">optional</option>
-                </select>
-                <select className="input sm" value={edit.maxPhotos}
-                  onChange={(e) => setEdit({ ...edit, maxPhotos: Number(e.target.value) })}>
-                  <option value={1}>1 📷</option>
-                  <option value={2}>2 📷</option>
-                  <option value={3}>3 📷</option>
-                </select>
-                <button className="btn sm" onClick={() => saveEdit(r)}>Save</button>
-                <button className="btn-ghost sm" onClick={() => setEditingId(null)}>Cancel</button>
-              </>
-            ) : (
-              <>
-                <span className={`tag ${r.forWhom}`}>{r.forWhom}</span>
-                <span className="reqTitle">
-                  {r.titleBangla} <span className="muted">({r.title})</span>
-                </span>
-                <span className={r.isMandatory ? "must" : "opt"}>
-                  {r.isMandatory ? "must" : "optional"}
-                </span>
-                <span className="muted small">{r.maxPhotos} 📷</span>
-                <button className="link-btn" onClick={() => startEdit(r)}>edit</button>
-                <button className="del" onClick={() => onDelete(r._id, service._id)}>✕</button>
-              </>
-            )}
-          </li>
-        ))}
-      </ul>
-
-      <div className="reqForm">
-        <input className="input sm" placeholder="Title (English)"
-          value={f.title || ""}
-          onChange={(e) => onFieldChange(service._id, "title", e.target.value)} />
-        <input className="input sm" placeholder="শিরোনাম (বাংলা)"
-          value={f.titleBangla || ""}
-          onChange={(e) => onFieldChange(service._id, "titleBangla", e.target.value)} />
-        <select className="input sm" value={f.forWhom || "helper"}
-          onChange={(e) => onFieldChange(service._id, "forWhom", e.target.value)}>
-          <option value="helper">For helper</option>
-          <option value="patient">For patient</option>
+/* Documents editor (opens on demand) */
+function DocumentsEditor({ service, list, form, onFieldChange, onAdd, onEdit, onDelete, helpText }) {
+  const f = form || {};
+  return (
+    <div className="editor">
+      <p className="editor-help">{helpText}</p>
+      {list.length === 0 && <p className="muted small" style={{ margin: "6px 0" }}>No documents required yet.</p>}
+      <div className="reqs">
+        {list.map((r) => <RequirementRow key={r._id} r={r} serviceId={service._id} onEdit={onEdit} onDelete={onDelete} />)}
+      </div>
+      <div className="req-form">
+        <input className="input sm" placeholder="বাংলা নাম" value={f.titleBangla || ""} onChange={(e) => onFieldChange(service._id, "titleBangla", e.target.value)} />
+        <input className="input sm" placeholder="English name" value={f.title || ""} onChange={(e) => onFieldChange(service._id, "title", e.target.value)} />
+        <select className="input sm" value={f.forWhom || "helper"} onChange={(e) => onFieldChange(service._id, "forWhom", e.target.value)}>
+          <option value="helper">For caregiver</option><option value="patient">For patient</option>
         </select>
-        <select className="input sm" value={f.isMandatory === false ? "no" : "yes"}
-          onChange={(e) => onFieldChange(service._id, "isMandatory", e.target.value === "yes")}>
-          <option value="yes">Mandatory</option>
-          <option value="no">Optional</option>
+        <select className="input sm" value={f.isMandatory === false ? "n" : "y"} onChange={(e) => onFieldChange(service._id, "isMandatory", e.target.value === "y")}>
+          <option value="y">Mandatory</option><option value="n">Optional</option>
         </select>
-        <select className="input sm" value={f.maxPhotos || 3}
-          onChange={(e) => onFieldChange(service._id, "maxPhotos", e.target.value)}>
-          <option value={1}>1 photo</option>
-          <option value={2}>2 photos</option>
-          <option value={3}>3 photos</option>
+        <select className="input sm" value={f.maxPhotos || 3} onChange={(e) => onFieldChange(service._id, "maxPhotos", e.target.value)}>
+          <option value={1}>1📷</option><option value={2}>2📷</option><option value={3}>3📷</option>
         </select>
         <button className="btn sm" onClick={() => onAdd(service._id)}>+ Add</button>
       </div>
@@ -108,94 +78,74 @@ function RequirementBlock({ service, scopeLabel, list, form, onFieldChange, onAd
   );
 }
 
-/* -------- Pricing editor for a sub-service (defined OUTSIDE) -------- */
+/* Pricing editor (opens on demand) */
 function PricingEditor({ sub, onSave }) {
   const [chargeType, setChargeType] = useState(sub.chargeType || "hourly");
   const [pricingMode, setPricingMode] = useState(sub.pricingMode || "helper_flexible");
   const [adminAmount, setAdminAmount] = useState(sub.adminAmount ?? "");
   const [dirty, setDirty] = useState(false);
-
   const needsAmount = pricingMode === "admin_fixed" || pricingMode === "admin_default";
-
-  function mark(setter) {
-    return (v) => { setter(v); setDirty(true); };
-  }
-
+  const mark = (setter) => (v) => { setter(v); setDirty(true); };
   async function save() {
-    await onSave(sub._id, {
-      chargeType,
-      pricingMode,
-      adminAmount: needsAmount ? Number(adminAmount) || 0 : null,
-    });
+    await onSave(sub._id, { chargeType, pricingMode, adminAmount: needsAmount ? Number(adminAmount) || 0 : null });
     setDirty(false);
   }
-
   return (
-    <div className="pricingBox">
-      <div className="pricingRow">
-        <label className="pLabel">Charge</label>
-        <select className="input sm" value={chargeType} onChange={(e) => mark(setChargeType)(e.target.value)}>
-          <option value="hourly">Hourly</option>
-          <option value="fixed">Fixed (per job)</option>
-        </select>
-
-        <label className="pLabel">Amount control</label>
-        <select className="input sm" value={pricingMode} onChange={(e) => mark(setPricingMode)(e.target.value)}>
-          <option value="helper_flexible">Helper sets price</option>
-          <option value="admin_default">Default, helper can edit</option>
-          <option value="admin_fixed">Fixed by admin (locked)</option>
-        </select>
-
+    <div className="editor">
+      <div className="field-grid">
+        <label className="field">
+          <span className="field-label">How it's charged</span>
+          <select className="input sm" value={chargeType} onChange={(e) => mark(setChargeType)(e.target.value)}>
+            <option value="hourly">Per hour</option><option value="fixed">Per job (fixed)</option>
+          </select>
+        </label>
+        <label className="field">
+          <span className="field-label">Who sets the price</span>
+          <select className="input sm" value={pricingMode} onChange={(e) => mark(setPricingMode)(e.target.value)}>
+            <option value="helper_flexible">Caregiver decides</option>
+            <option value="admin_default">Default, caregiver can change</option>
+            <option value="admin_fixed">Fixed by you (locked)</option>
+          </select>
+        </label>
         {needsAmount && (
-          <>
-            <label className="pLabel">৳</label>
-            <input className="input sm" type="number" placeholder="Amount"
-              style={{ maxWidth: 110 }}
-              value={adminAmount} onChange={(e) => mark(setAdminAmount)(e.target.value)} />
-          </>
+          <label className="field">
+            <span className="field-label">Amount ৳</span>
+            <input className="input sm" type="number" value={adminAmount} onChange={(e) => mark(setAdminAmount)(e.target.value)} />
+          </label>
         )}
-
-        {dirty && <button className="btn sm" onClick={save}>Save price</button>}
       </div>
-      <p className="muted small" style={{ marginTop: 4 }}>
-        {PRICING_LABEL[pricingMode]} · {chargeType === "hourly" ? "per hour" : "per job"}
+      <p className="editor-help">
+        {pricingMode === "admin_fixed" && "Caregivers cannot change this price. "}
+        {pricingMode === "admin_default" && "Caregivers start from your amount but may adjust it. "}
+        {pricingMode === "helper_flexible" && "Each caregiver sets their own price. "}
+        Charged {chargeType === "hourly" ? "per hour" : "per job"}.
       </p>
+      {dirty && <button className="btn sm" onClick={save}>Save price</button>}
     </div>
   );
 }
 
-/* -------- Inline name editor (defined OUTSIDE) -------- */
-const PV_LABEL = {
-  none: "No patient documents needed",
-  submit: "Patient must upload before requesting",
-  approved: "Patient must be approved before requesting",
-};
-
-function PatientVerificationEditor({ service, onSave }) {
+/* Patient check editor (opens on demand) */
+function PatientCheckEditor({ service, hasPatientReqs, onSave }) {
   const [mode, setMode] = useState(service.patientVerificationMode || "none");
   const [dirty, setDirty] = useState(false);
-
-  async function save() {
-    await onSave(service._id, { patientVerificationMode: mode });
-    setDirty(false);
-  }
-
+  async function save() { await onSave(service._id, { patientVerificationMode: mode }); setDirty(false); }
   return (
-    <div className="pvBox">
-      <div className="pricingRow">
-        <label className="pLabel">Patient check</label>
-        <select
-          className="input sm"
-          value={mode}
-          onChange={(e) => { setMode(e.target.value); setDirty(true); }}
-        >
-          <option value="none">None (one-tap)</option>
-          <option value="submit">Submit docs before request</option>
-          <option value="approved">Approved before request</option>
-        </select>
-        {dirty && <button className="btn sm" onClick={save}>Save</button>}
-      </div>
-      <p className="muted small" style={{ marginTop: 4 }}>{PV_LABEL[mode]}</p>
+    <div className="editor">
+      <select className="input sm" value={mode} onChange={(e) => { setMode(e.target.value); setDirty(true); }} style={{ maxWidth: 380 }}>
+        <option value="none">No check — patient books in one tap</option>
+        <option value="submit">Patient uploads documents before booking</option>
+        <option value="approved">Patient must be approved before booking</option>
+      </select>
+      <p className="editor-help">
+        {mode === "none" && "Most services use this. Anyone can request without paperwork."}
+        {mode === "submit" && "Patient uploads the 'For patient' documents, then can book right away (you review in parallel)."}
+        {mode === "approved" && "Patient must upload AND be approved by you before they can book."}
+      </p>
+      {mode !== "none" && !hasPatientReqs && (
+        <p className="editor-help warn">⚠ You've turned on a patient check but added no “For patient” documents — add one under Documents, or patients will have nothing to upload.</p>
+      )}
+      {dirty && <button className="btn sm" onClick={save}>Save</button>}
     </div>
   );
 }
@@ -204,11 +154,119 @@ function NameEditor({ initName, initBangla, onSave, onCancel }) {
   const [name, setName] = useState(initName);
   const [bangla, setBangla] = useState(initBangla);
   return (
-    <div className="row" style={{ margin: 0, flex: 1 }}>
+    <div className="row" style={{ flex: 1 }}>
       <input className="input sm" value={bangla} onChange={(e) => setBangla(e.target.value)} placeholder="বাংলা" />
       <input className="input sm" value={name} onChange={(e) => setName(e.target.value)} placeholder="English" />
       <button className="btn sm" onClick={() => onSave({ name, nameBangla: bangla })}>Save</button>
       <button className="btn-ghost sm" onClick={onCancel}>Cancel</button>
+    </div>
+  );
+}
+
+/* A sub-service row: quiet summary + action buttons that open ONE editor */
+function SubServiceCard(props) {
+  const { sub, reqs, ctx } = props;
+  const [open, setOpen] = useState(null); // 'price' | 'docs' | 'patient' | 'name' | null
+  const toggle = (k) => setOpen(open === k ? null : k);
+
+  const priceLabel = (() => {
+    if (sub.pricingMode === "admin_fixed" || sub.pricingMode === "admin_default") {
+      return `৳${sub.adminAmount ?? "?"}${sub.chargeType === "hourly" ? "/hr" : ""}`;
+    }
+    return sub.chargeType === "hourly" ? "caregiver price/hr" : "caregiver price";
+  })();
+  const docCount = reqs.length;
+  const patientLabel = { none: "off", submit: "upload", approved: "approved" }[sub.patientVerificationMode || "none"];
+  const hasPatientReqs = reqs.some((r) => r.forWhom === "patient");
+
+  return (
+    <div className="sub2">
+      <div className="sub2-head">
+        {open === "name" ? (
+          <NameEditor initName={sub.name} initBangla={sub.nameBangla}
+            onSave={(b) => { ctx.editService(sub._id, b); setOpen(null); }} onCancel={() => setOpen(null)} />
+        ) : (
+          <div className="sub2-title-wrap">
+            <div className="sub2-title">{sub.nameBangla} <span className="muted small">· {sub.name}</span></div>
+            <div className="sub2-summary">💵 {priceLabel} · 📄 {docCount} docs · 🛡️ {patientLabel}</div>
+          </div>
+        )}
+        <button className="icon-btn" onClick={() => ctx.delService(sub._id)}>✕</button>
+      </div>
+
+      <div className="action-row">
+        <button className={open === "price" ? "chip-btn on" : "chip-btn"} onClick={() => toggle("price")}>💵 Price</button>
+        <button className={open === "docs" ? "chip-btn on" : "chip-btn"} onClick={() => toggle("docs")}>📄 Documents</button>
+        <button className={open === "patient" ? "chip-btn on" : "chip-btn"} onClick={() => toggle("patient")}>🛡️ Patient check</button>
+        <button className={open === "name" ? "chip-btn on" : "chip-btn"} onClick={() => toggle("name")}>✏️ Rename</button>
+      </div>
+
+      {open === "price" && <PricingEditor sub={sub} onSave={ctx.savePricing} />}
+      {open === "docs" && (
+        <DocumentsEditor service={sub} list={reqs} form={ctx.reqForm[sub._id]}
+          onFieldChange={ctx.setReqField} onAdd={ctx.addRequirement} onEdit={ctx.editRequirement} onDelete={ctx.delRequirement}
+          helpText="Documents needed only for this sub-service (on top of the main service's common documents)." />
+      )}
+      {open === "patient" && <PatientCheckEditor service={sub} hasPatientReqs={hasPatientReqs} onSave={ctx.editService} />}
+    </div>
+  );
+}
+
+/* A main service card: quiet by default, sub-services listed, settings behind a button */
+function MainServiceCard({ main, ctx }) {
+  const isOpen = ctx.expanded[main._id];
+  const [settingsOpen, setSettingsOpen] = useState(null); // 'docs' | 'patient' | null
+  const mainReqs = ctx.requirements[main._id] || [];
+  const hasPatientReqs = mainReqs.some((r) => r.forWhom === "patient");
+
+  return (
+    <div className="svc">
+      <div className="svc-head">
+        <span className="svc-caret" onClick={() => ctx.toggleExpand(main)}>{isOpen ? "▾" : "▸"}</span>
+        {ctx.editingName === main._id ? (
+          <NameEditor initName={main.name} initBangla={main.nameBangla} onSave={(b) => ctx.editService(main._id, b)} onCancel={() => ctx.setEditingName(null)} />
+        ) : (
+          <div style={{ flex: 1 }} onClick={() => ctx.toggleExpand(main)}>
+            <div className="svc-title">{main.nameBangla} <span className="muted small">· {main.name}</span></div>
+            <div className="svc-meta">{main.helperRoles.join(", ") || "no professions"} · {main.subServices.length} sub-services</div>
+          </div>
+        )}
+        {ctx.editingName !== main._id && <button className="link-btn" onClick={() => ctx.setEditingName(main._id)}>Rename</button>}
+        <button className="icon-btn" onClick={() => ctx.delService(main._id)}>✕</button>
+      </div>
+
+      {isOpen && (
+        <div className="svc-body">
+          {/* Main-service settings, collapsed behind buttons */}
+          <div className="action-row">
+            <button className={settingsOpen === "docs" ? "chip-btn on" : "chip-btn"} onClick={() => setSettingsOpen(settingsOpen === "docs" ? null : "docs")}>
+              📄 Common documents ({mainReqs.length})
+            </button>
+            <button className={settingsOpen === "patient" ? "chip-btn on" : "chip-btn"} onClick={() => setSettingsOpen(settingsOpen === "patient" ? null : "patient")}>
+              🛡️ Patient check: {{ none: "off", submit: "upload", approved: "approved" }[main.patientVerificationMode || "none"]}
+            </button>
+          </div>
+          {settingsOpen === "docs" && (
+            <DocumentsEditor service={main} list={mainReqs} form={ctx.reqForm[main._id]}
+              onFieldChange={ctx.setReqField} onAdd={ctx.addRequirement} onEdit={ctx.editRequirement} onDelete={ctx.delRequirement}
+              helpText="Common documents apply to every sub-service below. A caregiver uploads them once. Mark a document 'For patient' if the patient must provide it." />
+          )}
+          {settingsOpen === "patient" && <PatientCheckEditor service={main} hasPatientReqs={hasPatientReqs} onSave={ctx.editService} />}
+
+          {/* Sub-services */}
+          <div className="section-label" style={{ marginTop: 18 }}>Sub-services</div>
+          {main.subServices.length === 0 && <p className="muted small">None yet. Add one below.</p>}
+          {main.subServices.map((sub) => (
+            <SubServiceCard key={sub._id} sub={sub} reqs={ctx.requirements[sub._id] || []} ctx={ctx} />
+          ))}
+
+          <div className="row" style={{ marginTop: 12 }}>
+            <input className="input sm" placeholder="উপ-সেবা (বাংলা)" value={(ctx.subForm[main._id] || {}).bangla || ""} onChange={(e) => ctx.setSubField(main._id, "bangla", e.target.value)} />
+            <input className="input sm" placeholder="Sub-service (English)" value={(ctx.subForm[main._id] || {}).name || ""} onChange={(e) => ctx.setSubField(main._id, "name", e.target.value)} />
+            <button className="btn sm" onClick={() => ctx.addSub(main._id)}>+ Add sub-service</button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -219,8 +277,7 @@ export default function ServiceManager() {
   const [loading, setLoading] = useState(true);
   const [expanded, setExpanded] = useState({});
   const [requirements, setRequirements] = useState({});
-  const [editingName, setEditingName] = useState(null); // serviceId being renamed
-
+  const [editingName, setEditingName] = useState(null);
   const [mName, setMName] = useState("");
   const [mBangla, setMBangla] = useState("");
   const [mRoles, setMRoles] = useState([]);
@@ -230,10 +287,7 @@ export default function ServiceManager() {
   async function load() {
     setLoading(true);
     try {
-      const [tRes, rRes] = await Promise.all([
-        apiFetch("/api/services/tree"),
-        apiFetch("/api/roles"),
-      ]);
+      const [tRes, rRes] = await Promise.all([apiFetch("/api/services/tree"), apiFetch("/api/roles")]);
       setTree(await tRes.json());
       setRoles(await rRes.json());
     } catch (e) {} finally { setLoading(false); }
@@ -247,221 +301,94 @@ export default function ServiceManager() {
       setRequirements((prev) => ({ ...prev, [serviceId]: data }));
     } catch (e) {}
   }
-
   function toggleExpand(main) {
     const open = !expanded[main._id];
     setExpanded((p) => ({ ...p, [main._id]: open }));
-    if (open) {
-      loadRequirements(main._id);
-      main.subServices.forEach((s) => loadRequirements(s._id));
-    }
+    if (open) { loadRequirements(main._id); main.subServices.forEach((s) => loadRequirements(s._id)); }
   }
-
   async function addMain(e) {
     e.preventDefault();
-    if (!mName || !mBangla || mRoles.length === 0) {
-      alert("Fill name, Bangla name and pick at least one role."); return;
-    }
-    const res = await apiFetch("/api/services", {
-      method: "POST",
-      body: JSON.stringify({ name: mName, nameBangla: mBangla, helperRoles: mRoles }),
-    });
-    if (res.ok) { setMName(""); setMBangla(""); setMRoles([]); load(); }
-    else { const d = await res.json(); alert(d.error || "Failed"); }
+    if (!mName || !mBangla || mRoles.length === 0) { alert("Fill both names and pick at least one profession."); return; }
+    const res = await apiFetch("/api/services", { method: "POST", body: JSON.stringify({ name: mName, nameBangla: mBangla, helperRoles: mRoles }) });
+    if (res.ok) { setMName(""); setMBangla(""); setMRoles([]); load(); } else { const d = await res.json(); alert(d.error || "Failed"); }
   }
-
   async function addSub(mainId) {
     const f = subForm[mainId] || {};
     if (!f.name || !f.bangla) { alert("Fill both names"); return; }
-    const res = await apiFetch("/api/services", {
-      method: "POST",
-      body: JSON.stringify({ name: f.name, nameBangla: f.bangla, parent: mainId }),
-    });
-    if (res.ok) { setSubForm((p) => ({ ...p, [mainId]: {} })); load(); }
-    else { const d = await res.json(); alert(d.error || "Failed"); }
+    const res = await apiFetch("/api/services", { method: "POST", body: JSON.stringify({ name: f.name, nameBangla: f.bangla, parent: mainId }) });
+    if (res.ok) { setSubForm((p) => ({ ...p, [mainId]: {} })); load(); } else { const d = await res.json(); alert(d.error || "Failed"); }
   }
-
   async function editService(id, body) {
-    const res = await apiFetch(`/api/services/${id}`, {
-      method: "PUT", body: JSON.stringify(body),
-    });
-    if (res.ok) { setEditingName(null); load(); }
-    else { const d = await res.json(); alert(d.error || "Failed"); }
+    const res = await apiFetch(`/api/services/${id}`, { method: "PUT", body: JSON.stringify(body) });
+    if (res.ok) { setEditingName(null); load(); } else { const d = await res.json(); alert(d.error || "Failed"); }
   }
-
-  async function savePricing(subId, pricing) {
-    await editService(subId, pricing);
-  }
-
+  async function savePricing(subId, pricing) { await editService(subId, pricing); }
   async function delService(id) {
-    if (!confirm("Delete this service? Its requirements will be removed too.")) return;
+    if (!confirm("Delete this service? Its documents will be removed too.")) return;
     const res = await apiFetch(`/api/services/${id}`, { method: "DELETE" });
-    if (res.ok) load();
-    else { const d = await res.json(); alert(d.error || "Failed"); }
+    if (res.ok) load(); else { const d = await res.json(); alert(d.error || "Failed"); }
   }
-
   async function addRequirement(serviceId) {
     const f = reqForm[serviceId] || {};
-    if (!f.title || !f.titleBangla) { alert("Fill requirement title (both languages)"); return; }
+    if (!f.title || !f.titleBangla) { alert("Fill the document name in both languages"); return; }
     const res = await apiFetch("/api/requirements", {
       method: "POST",
-      body: JSON.stringify({
-        service: serviceId,
-        forWhom: f.forWhom || "helper",
-        title: f.title, titleBangla: f.titleBangla,
-        isMandatory: f.isMandatory !== false,
-        maxPhotos: Number(f.maxPhotos) || 3,
-      }),
+      body: JSON.stringify({ service: serviceId, forWhom: f.forWhom || "helper", title: f.title, titleBangla: f.titleBangla, isMandatory: f.isMandatory !== false, maxPhotos: Number(f.maxPhotos) || 3 }),
     });
-    if (res.ok) {
-      setReqForm((p) => ({ ...p, [serviceId]: {} }));
-      loadRequirements(serviceId);
-    } else { const d = await res.json(); alert(d.error || "Failed"); }
+    if (res.ok) { setReqForm((p) => ({ ...p, [serviceId]: {} })); loadRequirements(serviceId); } else { const d = await res.json(); alert(d.error || "Failed"); }
   }
-
   async function editRequirement(reqId, serviceId, body) {
-    const willBeMandatory = body.isMandatory === true;
-    if (willBeMandatory) {
-      const ok = confirm("Making this mandatory may make some helpers/patients ineligible until they submit it. Continue?");
-      if (!ok) return;
-    }
-    const res = await apiFetch(`/api/requirements/${reqId}`, {
-      method: "PUT", body: JSON.stringify(body),
-    });
-    if (res.ok) loadRequirements(serviceId);
-    else { const d = await res.json(); alert(d.error || "Failed"); }
+    if (body.isMandatory === true) { if (!confirm("Making this mandatory may make some caregivers/patients ineligible until they submit it. Continue?")) return; }
+    const res = await apiFetch(`/api/requirements/${reqId}`, { method: "PUT", body: JSON.stringify(body) });
+    if (res.ok) loadRequirements(serviceId); else { const d = await res.json(); alert(d.error || "Failed"); }
   }
-
   async function delRequirement(reqId, serviceId) {
-    if (!confirm("Delete this requirement? Submissions for it will be removed.")) return;
+    if (!confirm("Delete this document requirement?")) return;
     const res = await apiFetch(`/api/requirements/${reqId}`, { method: "DELETE" });
     if (res.ok) loadRequirements(serviceId);
   }
+  function setReqField(serviceId, key, val) { setReqForm((p) => ({ ...p, [serviceId]: { ...(p[serviceId] || {}), [key]: val } })); }
+  function setSubField(mainId, key, val) { setSubForm((p) => ({ ...p, [mainId]: { ...(p[mainId] || {}), [key]: val } })); }
 
-  function setReqField(serviceId, key, val) {
-    setReqForm((p) => ({ ...p, [serviceId]: { ...(p[serviceId] || {}), [key]: val } }));
-  }
-  function setSubField(mainId, key, val) {
-    setSubForm((p) => ({ ...p, [mainId]: { ...(p[mainId] || {}), [key]: val } }));
-  }
+  const ctx = {
+    expanded, requirements, editingName, reqForm, subForm,
+    toggleExpand, editService, savePricing, delService,
+    addRequirement, editRequirement, delRequirement, setReqField,
+    setSubField, addSub, setEditingName,
+  };
 
-  if (loading) return <div className="center">Loading services...</div>;
+  if (loading) return <div className="center">Loading services…</div>;
 
   return (
     <div>
       <section className="panel">
-        <h2>Add a main service</h2>
-        <p className="hint">
-          Main services carry the roles. Helpers see only main services matching their profession.
-        </p>
+        <div className="panel-head">
+          <h2>Add a main service</h2>
+          <p className="hint">A main service groups related sub-services. Caregivers only see services matching their profession.</p>
+        </div>
         <form className="col" onSubmit={addMain}>
           <div className="row">
-            <input className="input" placeholder="Name (English)" value={mName}
-              onChange={(e) => setMName(e.target.value)} />
-            <input className="input" placeholder="নাম (বাংলা)" value={mBangla}
-              onChange={(e) => setMBangla(e.target.value)} />
+            <input className="input" placeholder="নাম (বাংলা)" value={mBangla} onChange={(e) => setMBangla(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
+            <input className="input" placeholder="Name (English)" value={mName} onChange={(e) => setMName(e.target.value)} style={{ flex: 1, minWidth: 160 }} />
           </div>
-          <div className="rolepick">
-            <span className="muted">Served by roles:</span>
-            {roles.map((r) => (
-              <label key={r._id} className="chip">
-                <input type="checkbox" checked={mRoles.includes(r.name)}
-                  onChange={() => setMRoles((p) =>
-                    p.includes(r.name) ? p.filter((x) => x !== r.name) : [...p, r.name])} />
-                {r.nameBangla}
-              </label>
-            ))}
-            {roles.length === 0 && <span className="muted">Add a role first.</span>}
+          <div>
+            <div className="section-label">Which professions can do this?</div>
+            <div className="chips">
+              {roles.map((r) => (
+                <label key={r._id} className={mRoles.includes(r.name) ? "chip on" : "chip"}>
+                  <input type="checkbox" checked={mRoles.includes(r.name)} onChange={() => setMRoles((p) => p.includes(r.name) ? p.filter((x) => x !== r.name) : [...p, r.name])} />
+                  {r.nameBangla}
+                </label>
+              ))}
+              {roles.length === 0 && <span className="muted small">Add a profession first (Professions tab).</span>}
+            </div>
           </div>
-          <button className="btn">Add main service</button>
+          <button className="btn" style={{ alignSelf: "flex-start" }}>Add main service</button>
         </form>
       </section>
 
-      {tree.length === 0 && (
-        <div className="panel"><p className="muted">No services yet.</p></div>
-      )}
-
-      {tree.map((main) => (
-        <div key={main._id} className="serviceCard">
-          <div className="serviceHead">
-            <span className="caret" onClick={() => toggleExpand(main)}>
-              {expanded[main._id] ? "▾" : "▸"}
-            </span>
-            {editingName === main._id ? (
-              <NameEditor initName={main.name} initBangla={main.nameBangla}
-                onSave={(b) => editService(main._id, b)} onCancel={() => setEditingName(null)} />
-            ) : (
-              <div style={{ flex: 1 }} onClick={() => toggleExpand(main)}>
-                <div className="serviceName">
-                  {main.nameBangla} <span className="muted">({main.name})</span>
-                </div>
-                <div className="muted small">
-                  Roles: {main.helperRoles.join(", ") || "—"} · {main.subServices.length} sub-services
-                </div>
-              </div>
-            )}
-            {editingName !== main._id && (
-              <button className="link-btn" onClick={() => setEditingName(main._id)}>edit</button>
-            )}
-            <button className="del" onClick={() => delService(main._id)}>✕</button>
-          </div>
-
-          {expanded[main._id] && (
-            <div className="serviceBody">
-              <RequirementBlock
-                service={main} scopeLabel="common for all its sub-services"
-                list={requirements[main._id] || []} form={reqForm[main._id]}
-                onFieldChange={setReqField} onAdd={addRequirement}
-                onEdit={editRequirement} onDelete={delRequirement} />
-
-              <PatientVerificationEditor service={main} onSave={editService} />
-
-              <div className="subSection">
-                <strong>Sub-services</strong>
-                {main.subServices.map((sub) => (
-                  <div key={sub._id} className="subCard">
-                    <div className="subHead">
-                      {editingName === sub._id ? (
-                        <NameEditor initName={sub.name} initBangla={sub.nameBangla}
-                          onSave={(b) => editService(sub._id, b)} onCancel={() => setEditingName(null)} />
-                      ) : (
-                        <span className="subName">
-                          {sub.nameBangla} <span className="muted">({sub.name})</span>
-                        </span>
-                      )}
-                      <div>
-                        {editingName !== sub._id && (
-                          <button className="link-btn" onClick={() => setEditingName(sub._id)}>edit</button>
-                        )}
-                        <button className="del" onClick={() => delService(sub._id)}>✕</button>
-                      </div>
-                    </div>
-
-                    <PricingEditor sub={sub} onSave={savePricing} />
-                    <PatientVerificationEditor service={sub} onSave={editService} />
-
-                    <RequirementBlock
-                      service={sub} scopeLabel="specific to this sub-service"
-                      list={requirements[sub._id] || []} form={reqForm[sub._id]}
-                      onFieldChange={setReqField} onAdd={addRequirement}
-                      onEdit={editRequirement} onDelete={delRequirement} />
-                  </div>
-                ))}
-
-                <div className="row" style={{ marginTop: 10 }}>
-                  <input className="input sm" placeholder="Sub-service (English)"
-                    value={(subForm[main._id] || {}).name || ""}
-                    onChange={(e) => setSubField(main._id, "name", e.target.value)} />
-                  <input className="input sm" placeholder="উপ-সেবা (বাংলা)"
-                    value={(subForm[main._id] || {}).bangla || ""}
-                    onChange={(e) => setSubField(main._id, "bangla", e.target.value)} />
-                  <button className="btn sm" onClick={() => addSub(main._id)}>+ Sub-service</button>
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-      ))}
+      {tree.length === 0 && <div className="panel"><div className="empty-state"><div className="big">📋</div>No services yet.</div></div>}
+      {tree.map((main) => <MainServiceCard key={main._id} main={main} ctx={ctx} />)}
     </div>
   );
 }
