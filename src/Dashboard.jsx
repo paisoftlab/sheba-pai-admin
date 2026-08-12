@@ -3,6 +3,7 @@ import { apiFetch } from "./api";
 import Verifications from "./Verifications";
 import ServiceManager from "./ServiceManager";
 import Submissions from "./Submissions";
+import Payments from "./Payments";
 
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("verify");
@@ -10,7 +11,7 @@ export default function Dashboard({ onLogout }) {
   const [roleName, setRoleName] = useState("");
   const [roleBangla, setRoleBangla] = useState("");
   // pending counts for tab badges
-  const [pending, setPending] = useState({ verify: 0, submissions: 0 });
+  const [pending, setPending] = useState({ verify: 0, submissions: 0, payments: 0 });
 
   async function loadRoles() {
     try {
@@ -20,13 +21,15 @@ export default function Dashboard({ onLogout }) {
   }
   async function loadCounts() {
     try {
-      const [v, s] = await Promise.all([
+      const [v, s, p] = await Promise.all([
         apiFetch("/api/admin/verifications?status=pending"),
         apiFetch("/api/admin/submissions?status=pending"),
+        apiFetch("/api/admin/payments?status=pending"),
       ]);
       const vd = v.ok ? await v.json() : [];
       const sd = s.ok ? await s.json() : [];
-      setPending({ verify: vd.length || 0, submissions: sd.length || 0 });
+      const pd = p.ok ? await p.json() : [];
+      setPending({ verify: vd.length || 0, submissions: sd.length || 0, payments: pd.length || 0 });
     } catch (e) {}
   }
   useEffect(() => { loadRoles(); loadCounts(); }, []);
@@ -57,6 +60,7 @@ export default function Dashboard({ onLogout }) {
   const TABS = [
     { key: "verify", label: "Identity checks", badge: pending.verify },
     { key: "submissions", label: "Document proofs", badge: pending.submissions },
+    { key: "payments", label: "Payments", badge: pending.payments },
     { key: "services", label: "Services", badge: null },
     { key: "roles", label: "Professions", badge: null },
   ];
@@ -78,7 +82,7 @@ export default function Dashboard({ onLogout }) {
         {TABS.map((tb) => (
           <button key={tb.key}
             className={tab === tb.key ? "tab active" : "tab"}
-            onClick={() => { setTab(tb.key); if (tb.key === "verify" || tb.key === "submissions") loadCounts(); }}>
+            onClick={() => { setTab(tb.key); if (["verify", "submissions", "payments"].includes(tb.key)) loadCounts(); }}>
             {tb.label}
             {tb.badge !== null && (
               <span className={`count ${tb.badge === 0 ? "zero" : ""}`}>{tb.badge}</span>
@@ -89,6 +93,7 @@ export default function Dashboard({ onLogout }) {
 
       {tab === "verify" && <Verifications onChange={loadCounts} />}
       {tab === "submissions" && <Submissions onChange={loadCounts} />}
+      {tab === "payments" && <Payments onChange={loadCounts} />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (

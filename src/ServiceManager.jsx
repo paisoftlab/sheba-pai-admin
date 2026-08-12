@@ -83,11 +83,16 @@ function PricingEditor({ sub, onSave }) {
   const [chargeType, setChargeType] = useState(sub.chargeType || "hourly");
   const [pricingMode, setPricingMode] = useState(sub.pricingMode || "helper_flexible");
   const [adminAmount, setAdminAmount] = useState(sub.adminAmount ?? "");
+  const [commissionPercent, setCommissionPercent] = useState(sub.commissionPercent ?? 0);
   const [dirty, setDirty] = useState(false);
   const needsAmount = pricingMode === "admin_fixed" || pricingMode === "admin_default";
   const mark = (setter) => (v) => { setter(v); setDirty(true); };
   async function save() {
-    await onSave(sub._id, { chargeType, pricingMode, adminAmount: needsAmount ? Number(adminAmount) || 0 : null });
+    await onSave(sub._id, {
+      chargeType, pricingMode,
+      adminAmount: needsAmount ? Number(adminAmount) || 0 : null,
+      commissionPercent: Number(commissionPercent) || 0,
+    });
     setDirty(false);
   }
   return (
@@ -113,12 +118,18 @@ function PricingEditor({ sub, onSave }) {
             <input className="input sm" type="number" value={adminAmount} onChange={(e) => mark(setAdminAmount)(e.target.value)} />
           </label>
         )}
+        <label className="field">
+          <span className="field-label">Platform commission %</span>
+          <input className="input sm" type="number" min="0" max="100" style={{ maxWidth: 90 }}
+            value={commissionPercent} onChange={(e) => mark(setCommissionPercent)(e.target.value)} />
+        </label>
       </div>
       <p className="editor-help">
         {pricingMode === "admin_fixed" && "Caregivers cannot change this price. "}
         {pricingMode === "admin_default" && "Caregivers start from your amount but may adjust it. "}
         {pricingMode === "helper_flexible" && "Each caregiver sets their own price. "}
         Charged {chargeType === "hourly" ? "per hour" : "per job"}.
+        {Number(commissionPercent) > 0 && <> The platform takes <strong>{commissionPercent}%</strong> of each completed job as commission.</>}
       </p>
       {dirty && <button className="btn sm" onClick={save}>Save price</button>}
     </div>
@@ -188,7 +199,7 @@ function SubServiceCard(props) {
         ) : (
           <div className="sub2-title-wrap">
             <div className="sub2-title">{sub.nameBangla} <span className="muted small">· {sub.name}</span></div>
-            <div className="sub2-summary">💵 {priceLabel} · 📄 {docCount} docs · 🛡️ {patientLabel}</div>
+            <div className="sub2-summary">💵 {priceLabel} · 🏦 {sub.commissionPercent || 0}% comm · 📄 {docCount} docs · 🛡️ {patientLabel}</div>
           </div>
         )}
         <button className="icon-btn" onClick={() => ctx.delService(sub._id)}>✕</button>
