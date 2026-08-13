@@ -4,6 +4,7 @@ import Verifications from "./Verifications";
 import ServiceManager from "./ServiceManager";
 import Submissions from "./Submissions";
 import Payments from "./Payments";
+import Reports from "./Reports";
 
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("verify");
@@ -61,6 +62,7 @@ export default function Dashboard({ onLogout }) {
     { key: "verify", label: "Identity checks", badge: pending.verify },
     { key: "submissions", label: "Document proofs", badge: pending.submissions },
     { key: "payments", label: "Payments", badge: pending.payments },
+    { key: "reports", label: "Overview", badge: null },
     { key: "services", label: "Services", badge: null },
     { key: "roles", label: "Professions", badge: null },
   ];
@@ -94,6 +96,7 @@ export default function Dashboard({ onLogout }) {
       {tab === "verify" && <Verifications onChange={loadCounts} />}
       {tab === "submissions" && <Submissions onChange={loadCounts} />}
       {tab === "payments" && <Payments onChange={loadCounts} />}
+      {tab === "reports" && <Reports />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (
