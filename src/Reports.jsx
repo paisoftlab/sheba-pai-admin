@@ -71,14 +71,20 @@ export default function Reports() {
           <div className="row" style={{ gap: 14 }}>
             <div className="settings-group" style={{ flex: 1, minWidth: 160 }}>
               <div className="sg-body" style={{ textAlign: "center" }}>
-                <div className="muted small">Total outstanding</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: "var(--danger)" }}>৳{commission.totalOutstanding.toLocaleString()}</div>
+                <div className="muted small">Commission earned (all-time)</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "var(--teal)" }}>৳{commission.commissionGenerated.toLocaleString()}</div>
               </div>
             </div>
             <div className="settings-group" style={{ flex: 1, minWidth: 160 }}>
               <div className="sg-body" style={{ textAlign: "center" }}>
-                <div className="muted small">Total earned (all-time)</div>
-                <div style={{ fontSize: 24, fontWeight: 800, color: "var(--teal)" }}>৳{commission.totalEarnedAll.toLocaleString()}</div>
+                <div className="muted small">Commission collected</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "var(--success)" }}>৳{commission.commissionCollected.toLocaleString()}</div>
+              </div>
+            </div>
+            <div className="settings-group" style={{ flex: 1, minWidth: 160 }}>
+              <div className="sg-body" style={{ textAlign: "center" }}>
+                <div className="muted small">Still outstanding</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "var(--danger)" }}>৳{commission.totalOutstanding.toLocaleString()}</div>
               </div>
             </div>
             <div className="settings-group" style={{ flex: 1, minWidth: 160 }}>
@@ -88,6 +94,10 @@ export default function Reports() {
               </div>
             </div>
           </div>
+          <p className="muted small" style={{ marginTop: 10 }}>
+            Caregivers earned ৳{commission.totalEarnedAll.toLocaleString()} in total job payments — the platform's
+            share of that is the commission figures above.
+          </p>
 
           {commission.owing.length > 0 ? (
             <ul className="list" style={{ marginTop: 16 }}>
