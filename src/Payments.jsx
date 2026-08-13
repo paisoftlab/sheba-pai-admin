@@ -7,34 +7,15 @@ export default function Payments({ onChange }) {
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState(null);
-  const [graceDays, setGraceDays] = useState(3);
-  const [graceDirty, setGraceDirty] = useState(false);
-  const [savingGrace, setSavingGrace] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
-      const [pRes, sRes] = await Promise.all([
-        apiFetch("/api/admin/payments?status=pending"),
-        apiFetch("/api/admin/settings"),
-      ]);
+      const pRes = await apiFetch("/api/admin/payments?status=pending");
       if (pRes.ok) setItems(await pRes.json());
-      if (sRes.ok) { const s = await sRes.json(); setGraceDays(s.commissionGraceDays); }
     } catch (e) {} finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
-
-  async function saveGrace() {
-    setSavingGrace(true);
-    try {
-      const res = await apiFetch("/api/admin/settings", {
-        method: "PATCH",
-        body: JSON.stringify({ commissionGraceDays: Number(graceDays) || 3 }),
-      });
-      if (res.ok) setGraceDirty(false);
-      else { const d = await res.json(); alert(d.error || "Failed"); }
-    } catch (e) { alert(e.message); } finally { setSavingGrace(false); }
-  }
 
   async function decide(id, decision) {
     let rejectionReason = null;
@@ -57,30 +38,6 @@ export default function Payments({ onChange }) {
 
   return (
     <div>
-      {/* Grace period setting */}
-      <section className="panel">
-        <div className="panel-head">
-          <h2>Commission payment window</h2>
-          <p className="hint">
-            After a job completes, a caregiver has this many days to pay their commission
-            before their account is automatically restricted from going online.
-          </p>
-        </div>
-        <div className="row">
-          <input
-            className="input sm" type="number" min="1" style={{ maxWidth: 90 }}
-            value={graceDays}
-            onChange={(e) => { setGraceDays(e.target.value); setGraceDirty(true); }}
-          />
-          <span className="muted small">days</span>
-          {graceDirty && (
-            <button className="btn sm" onClick={saveGrace} disabled={savingGrace}>
-              {savingGrace ? "Saving…" : "Save"}
-            </button>
-          )}
-        </div>
-      </section>
-
       {/* Pending payment submissions */}
       <div className="panel-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2>Commission payments ({items.length})</h2>

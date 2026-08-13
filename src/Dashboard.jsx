@@ -5,6 +5,7 @@ import ServiceManager from "./ServiceManager";
 import Submissions from "./Submissions";
 import Payments from "./Payments";
 import Reports from "./Reports";
+import Settings from "./Settings";
 
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("verify");
@@ -65,6 +66,7 @@ export default function Dashboard({ onLogout }) {
     { key: "reports", label: "Overview", badge: null },
     { key: "services", label: "Services", badge: null },
     { key: "roles", label: "Professions", badge: null },
+    { key: "settings", label: "Settings", badge: null },
   ];
 
   return (
@@ -97,6 +99,7 @@ export default function Dashboard({ onLogout }) {
       {tab === "submissions" && <Submissions onChange={loadCounts} />}
       {tab === "payments" && <Payments onChange={loadCounts} />}
       {tab === "reports" && <Reports />}
+      {tab === "settings" && <Settings />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (
