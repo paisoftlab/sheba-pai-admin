@@ -6,9 +6,11 @@ import Submissions from "./Submissions";
 import Payments from "./Payments";
 import Reports from "./Reports";
 import Settings from "./Settings";
+import Admins from "./Admins";
 
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("verify");
+  const currentUser = JSON.parse(localStorage.getItem("adminUser") || "{}");
   const [roles, setRoles] = useState([]);
   const [roleName, setRoleName] = useState("");
   const [roleBangla, setRoleBangla] = useState("");
@@ -67,6 +69,7 @@ export default function Dashboard({ onLogout }) {
     { key: "services", label: "Services", badge: null },
     { key: "roles", label: "Professions", badge: null },
     { key: "settings", label: "Settings", badge: null },
+    { key: "admins", label: "Admins", badge: null },
   ];
 
   return (
@@ -100,6 +103,7 @@ export default function Dashboard({ onLogout }) {
       {tab === "payments" && <Payments onChange={loadCounts} />}
       {tab === "reports" && <Reports />}
       {tab === "settings" && <Settings />}
+      {tab === "admins" && <Admins currentUserId={currentUser._id || currentUser.id} />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (
