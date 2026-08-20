@@ -7,6 +7,7 @@ import Payments from "./Payments";
 import Reports from "./Reports";
 import Settings from "./Settings";
 import Admins from "./Admins";
+import Pharmacy from "./Pharmacy";
 
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("verify");
@@ -67,6 +68,7 @@ export default function Dashboard({ onLogout }) {
     { key: "payments", label: "Payments", badge: pending.payments },
     { key: "reports", label: "Overview", badge: null },
     { key: "services", label: "Services", badge: null },
+    { key: "pharmacy", label: "Pharmacy", badge: null },
     { key: "roles", label: "Professions", badge: null },
     { key: "settings", label: "Settings", badge: null },
     { key: "admins", label: "Admins", badge: null },
@@ -104,6 +106,7 @@ export default function Dashboard({ onLogout }) {
       {tab === "reports" && <Reports />}
       {tab === "settings" && <Settings />}
       {tab === "admins" && <Admins currentUserId={currentUser._id || currentUser.id} />}
+      {tab === "pharmacy" && <Pharmacy />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (
