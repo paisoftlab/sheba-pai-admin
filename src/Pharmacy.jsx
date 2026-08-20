@@ -6,6 +6,7 @@ import { apiFetch } from "./api";
 function SubTabs({ active, onChange }) {
   const tabs = [
     { key: "medicines", label: "Medicines" },
+    { key: "categories", label: "Categories" },
     { key: "generics", label: "Generics" },
     { key: "manufacturers", label: "Manufacturers" },
     { key: "classes", label: "Drug classes" },
@@ -21,16 +22,133 @@ function SubTabs({ active, onChange }) {
   );
 }
 
+
+const ICON_CHOICES = [
+  "medkit", "flask", "heart", "body", "eye", "fitness", "nutrition",
+  "leaf", "bandage", "medical", "pulse", "happy", "male-female",
+  "male", "female", "school", "cart", "flame", "star", "gift",
+];
+const TONE_CHOICES = ["primary", "accent", "helper", "warning", "success"];
+
+function CategoryForm({ onSave, onCancel, initial }) {
+  const [f, setF] = useState(initial || { name: "", nameBangla: "", icon: "medkit", tone: "primary", sortOrder: 0, isFeatured: false });
+  const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+
+  async function submit() {
+    if (!f.name.trim()) { alert("Category name is required."); return; }
+    await onSave(f);
+  }
+
+  return (
+    <div className="editor">
+      <div className="field-grid">
+        <label className="field"><span className="field-label">Name *</span>
+          <input className="input sm" value={f.name} onChange={(e) => set("name", e.target.value)} placeholder="Diabetic Care" /></label>
+        <label className="field"><span className="field-label">নাম (বাংলা)</span>
+          <input className="input sm" value={f.nameBangla} onChange={(e) => set("nameBangla", e.target.value)} placeholder="ডায়াবেটিক কেয়ার" /></label>
+      </div>
+      <div className="field-grid">
+        <label className="field"><span className="field-label">Icon</span>
+          <select className="input sm" value={f.icon} onChange={(e) => set("icon", e.target.value)}>
+            {ICON_CHOICES.map((i) => <option key={i} value={i}>{i}</option>)}
+          </select></label>
+        <label className="field"><span className="field-label">Color</span>
+          <select className="input sm" value={f.tone} onChange={(e) => set("tone", e.target.value)}>
+            {TONE_CHOICES.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select></label>
+        <label className="field"><span className="field-label">Sort order</span>
+          <input className="input sm" type="number" value={f.sortOrder} onChange={(e) => set("sortOrder", Number(e.target.value))} style={{ maxWidth: 90 }} /></label>
+      </div>
+      <label className="chip" style={{ display: "inline-flex", marginBottom: 10 }}>
+        <input type="checkbox" checked={f.isFeatured} onChange={(e) => set("isFeatured", e.target.checked)} />
+        Featured (shown in the compact home-screen row)
+      </label>
+      <div className="row">
+        <button className="btn sm" onClick={submit}>Save</button>
+        <button className="btn-ghost sm" onClick={onCancel}>Cancel</button>
+      </div>
+    </div>
+  );
+}
+
+function CategoriesTab() {
+  const [list, setList] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+
+  async function load() {
+    setLoading(true);
+    try { const res = await apiFetch("/api/admin/categories"); if (res.ok) setList(await res.json()); }
+    catch (e) {} finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+
+  async function save(body) {
+    const url = editing ? `/api/admin/categories/${editing._id}` : "/api/admin/categories";
+    const res = await apiFetch(url, { method: editing ? "PUT" : "POST", body: JSON.stringify(body) });
+    if (res.ok) { setShowForm(false); setEditing(null); load(); }
+    else { const d = await res.json(); alert(d.error || "Failed"); }
+  }
+  async function remove(id) {
+    if (!confirm("Delete this category?")) return;
+    const res = await apiFetch(`/api/admin/categories/${id}`, { method: "DELETE" });
+    if (res.ok) load(); else { const d = await res.json(); alert(d.error || "Failed"); }
+  }
+
+  if (loading) return <div className="center">Loading…</div>;
+
+  return (
+    <div>
+      <section className="panel">
+        <div className="panel-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div>
+            <h2>Categories ({list.length})</h2>
+            <p className="hint">
+              What patients actually browse by on the store's home screen — "Diabetic Care", "Baby & Mom" —
+              not clinical drug classes. Keep this list short and easy to scan.
+            </p>
+          </div>
+          {!showForm && <button className="btn sm" onClick={() => { setEditing(null); setShowForm(true); }}>+ Add category</button>}
+        </div>
+        {showForm && <CategoryForm initial={editing} onSave={save} onCancel={() => { setShowForm(false); setEditing(null); }} />}
+      </section>
+
+      <ul className="list">
+        {list.map((c) => (
+          <li key={c._id} className="list-item">
+            <span>
+              <strong>{c.name}</strong> {c.nameBangla && <span className="muted small">· {c.nameBangla}</span>}
+              <span className="muted small"> · {c.icon} / {c.tone}</span>
+              {c.isFeatured && <span className="pill pill-must" style={{ marginLeft: 8 }}>Featured</span>}
+            </span>
+            <span className="row" style={{ gap: 8 }}>
+              <button className="link-btn" onClick={() => { setEditing(c); setShowForm(true); }}>Edit</button>
+              <button className="icon-btn" onClick={() => remove(c._id)}>✕</button>
+            </span>
+          </li>
+        ))}
+        {list.length === 0 && <li className="muted small">No categories yet.</li>}
+      </ul>
+    </div>
+  );
+}
+
 /* ---------- MEDICINES (brand products + stock) ---------- */
 
-function MedicineForm({ generics, manufacturers, onSave, onCancel, initial }) {
+function MedicineForm({ generics, manufacturers, categories, onSave, onCancel, initial }) {
   const [f, setF] = useState(initial || {
     brandName: "", brandNameBangla: "", generic: "", manufacturer: "",
     strength: "", dosageForm: "Tablet", mrp: "", price: "",
     sellUnit: "strip", unitsPerSellUnit: "", packSizeLabel: "",
-    prescriptionRequired: false, stock: "",
+    prescriptionRequired: false, stock: "", categories: [],
   });
   const set = (k, v) => setF((p) => ({ ...p, [k]: v }));
+  const toggleCategory = (id) => {
+    const current = f.categories?.map((c) => (typeof c === "string" ? c : c._id)) || [];
+    set("categories", current.includes(id) ? current.filter((x) => x !== id) : [...current, id]);
+  };
+  const selectedCategoryIds = (f.categories || []).map((c) => (typeof c === "string" ? c : c._id));
 
   async function submit() {
     if (!f.brandName || !f.generic || !f.manufacturer || !f.mrp || !f.price) {
@@ -42,6 +160,7 @@ function MedicineForm({ generics, manufacturers, onSave, onCancel, initial }) {
       mrp: Number(f.mrp), price: Number(f.price),
       unitsPerSellUnit: Number(f.unitsPerSellUnit) || 1,
       stock: Number(f.stock) || 0,
+      categories: selectedCategoryIds,
     });
   }
 
@@ -95,6 +214,18 @@ function MedicineForm({ generics, manufacturers, onSave, onCancel, initial }) {
         </label>
       </div>
 
+      <div className="section-label" style={{ marginTop: 10 }}>Shopping categories</div>
+      <p className="editor-help" style={{ marginTop: -4 }}>Where this appears in the store's category grid — pick one or more.</p>
+      <div className="chips" style={{ marginBottom: 10 }}>
+        {categories.map((c) => (
+          <label key={c._id} className={selectedCategoryIds.includes(c._id) ? "chip on" : "chip"}>
+            <input type="checkbox" checked={selectedCategoryIds.includes(c._id)} onChange={() => toggleCategory(c._id)} />
+            {c.name}
+          </label>
+        ))}
+        {categories.length === 0 && <span className="muted small">No categories yet — add some in the Categories tab.</span>}
+      </div>
+
       {f.price && f.mrp && Number(f.price) > Number(f.mrp) && (
         <p className="editor-help warn">⚠ Price cannot exceed MRP.</p>
       )}
@@ -111,6 +242,7 @@ function MedicinesTab() {
   const [medicines, setMedicines] = useState([]);
   const [generics, setGenerics] = useState([]);
   const [manufacturers, setManufacturers] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -120,14 +252,16 @@ function MedicinesTab() {
   async function load() {
     setLoading(true);
     try {
-      const [mRes, gRes, manRes] = await Promise.all([
+      const [mRes, gRes, manRes, catRes] = await Promise.all([
         apiFetch(`/api/admin/medicines${q ? `?q=${encodeURIComponent(q)}` : ""}`),
         apiFetch("/api/admin/generics"),
         apiFetch("/api/admin/manufacturers"),
+        apiFetch("/api/admin/categories"),
       ]);
       if (mRes.ok) setMedicines((await mRes.json()).medicines);
       if (gRes.ok) setGenerics(await gRes.json());
       if (manRes.ok) setManufacturers(await manRes.json());
+      if (catRes.ok) setCategories(await catRes.json());
     } catch (e) {} finally { setLoading(false); }
   }
   useEffect(() => { load(); }, []);
@@ -187,7 +321,7 @@ function MedicinesTab() {
 
         {showForm && (
           <MedicineForm
-            generics={generics} manufacturers={manufacturers}
+            generics={generics} manufacturers={manufacturers} categories={categories}
             initial={editing}
             onSave={saveMedicine}
             onCancel={() => { setShowForm(false); setEditing(null); }}
@@ -489,6 +623,7 @@ export default function Pharmacy() {
     <div>
       <SubTabs active={sub} onChange={setSub} />
       {sub === "medicines" && <MedicinesTab />}
+      {sub === "categories" && <CategoriesTab />}
       {sub === "generics" && <GenericsTab />}
       {sub === "manufacturers" && <ManufacturersTab />}
       {sub === "classes" && <ClassesTab />}
