@@ -8,6 +8,7 @@ import Reports from "./Reports";
 import Settings from "./Settings";
 import Admins from "./Admins";
 import Pharmacy from "./Pharmacy";
+import Orders from "./Orders";
 
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("verify");
@@ -16,7 +17,7 @@ export default function Dashboard({ onLogout }) {
   const [roleName, setRoleName] = useState("");
   const [roleBangla, setRoleBangla] = useState("");
   // pending counts for tab badges
-  const [pending, setPending] = useState({ verify: 0, submissions: 0, payments: 0 });
+  const [pending, setPending] = useState({ verify: 0, submissions: 0, payments: 0, orders: 0 });
 
   async function loadRoles() {
     try {
@@ -26,15 +27,17 @@ export default function Dashboard({ onLogout }) {
   }
   async function loadCounts() {
     try {
-      const [v, s, p] = await Promise.all([
+      const [v, s, p, o] = await Promise.all([
         apiFetch("/api/admin/verifications?status=pending"),
         apiFetch("/api/admin/submissions?status=pending"),
         apiFetch("/api/admin/payments?status=pending"),
+        apiFetch("/api/admin/orders?status=pending"),
       ]);
       const vd = v.ok ? await v.json() : [];
       const sd = s.ok ? await s.json() : [];
       const pd = p.ok ? await p.json() : [];
-      setPending({ verify: vd.length || 0, submissions: sd.length || 0, payments: pd.length || 0 });
+      const od = o.ok ? await o.json() : [];
+      setPending({ verify: vd.length || 0, submissions: sd.length || 0, payments: pd.length || 0, orders: od.length || 0 });
     } catch (e) {}
   }
   useEffect(() => { loadRoles(); loadCounts(); }, []);
@@ -66,6 +69,7 @@ export default function Dashboard({ onLogout }) {
     { key: "verify", label: "Identity checks", badge: pending.verify },
     { key: "submissions", label: "Document proofs", badge: pending.submissions },
     { key: "payments", label: "Payments", badge: pending.payments },
+    { key: "orders", label: "Orders", badge: pending.orders },
     { key: "reports", label: "Overview", badge: null },
     { key: "services", label: "Services", badge: null },
     { key: "pharmacy", label: "Pharmacy", badge: null },
@@ -91,7 +95,7 @@ export default function Dashboard({ onLogout }) {
         {TABS.map((tb) => (
           <button key={tb.key}
             className={tab === tb.key ? "tab active" : "tab"}
-            onClick={() => { setTab(tb.key); if (["verify", "submissions", "payments"].includes(tb.key)) loadCounts(); }}>
+            onClick={() => { setTab(tb.key); if (["verify", "submissions", "payments", "orders"].includes(tb.key)) loadCounts(); }}>
             {tb.label}
             {tb.badge !== null && (
               <span className={`count ${tb.badge === 0 ? "zero" : ""}`}>{tb.badge}</span>
@@ -107,6 +111,7 @@ export default function Dashboard({ onLogout }) {
       {tab === "settings" && <Settings />}
       {tab === "admins" && <Admins currentUserId={currentUser._id || currentUser.id} />}
       {tab === "pharmacy" && <Pharmacy />}
+      {tab === "orders" && <Orders />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (
