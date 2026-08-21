@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { apiFetch } from "./api";
+import { apiFetch, API_URL } from "./api";
 
 /* ---------- shared bits (module-level, so inputs never lose focus) ---------- */
 
@@ -238,6 +238,62 @@ function MedicineForm({ generics, manufacturers, categories, onSave, onCancel, i
   );
 }
 
+
+function ImageManager({ medicine, onChanged }) {
+  const [uploading, setUploading] = useState(false);
+  const [images, setImages] = useState(medicine.images || []);
+
+  async function uploadImage(file) {
+    if (!file) return;
+    setUploading(true);
+    try {
+      const token = localStorage.getItem("adminToken");
+      const formData = new FormData();
+      formData.append("image", file);
+      const res = await fetch(`${API_URL}/api/admin/medicines/${medicine._id}/images`, {
+        method: "POST",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+      });
+      const data = await res.json();
+      if (res.ok) { setImages(data.images); onChanged(medicine._id, data.images); }
+      else alert(data.error || "Upload failed");
+    } catch (err) { alert(err.message); } finally { setUploading(false); }
+  }
+
+  async function removeImage(url) {
+    if (!confirm("Remove this photo?")) return;
+    try {
+      const res = await apiFetch(`/api/admin/medicines/${medicine._id}/images`, { method: "DELETE", body: JSON.stringify({ url }) });
+      const data = await res.json();
+      if (res.ok) { setImages(data.images); onChanged(medicine._id, data.images); }
+      else alert(data.error || "Failed");
+    } catch (err) { alert(err.message); }
+  }
+
+  return (
+    <div className="editor">
+      <p className="editor-help">The first photo is used as the primary image everywhere in the store.</p>
+      <div className="imgs">
+        {images.map((url, i) => (
+          <div key={url} className="img-block">
+            <span className="img-label">{i === 0 ? "Primary" : `Photo ${i + 1}`}</span>
+            <div style={{ position: "relative" }}>
+              <img src={url} alt="" className="doc-img sm" />
+              <button className="icon-btn" style={{ position: "absolute", top: -6, right: -6, background: "#fff", borderRadius: "50%" }} onClick={() => removeImage(url)}>✕</button>
+            </div>
+          </div>
+        ))}
+      </div>
+      <label className="btn sm" style={{ display: "inline-block", cursor: "pointer" }}>
+        {uploading ? "Uploading…" : "+ Add photo"}
+        <input type="file" accept="image/*" style={{ display: "none" }} disabled={uploading}
+          onChange={(e) => { uploadImage(e.target.files[0]); e.target.value = ""; }} />
+      </label>
+    </div>
+  );
+}
+
 function MedicinesTab() {
   const [medicines, setMedicines] = useState([]);
   const [generics, setGenerics] = useState([]);
@@ -248,6 +304,7 @@ function MedicinesTab() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [stockEdit, setStockEdit] = useState({}); // id -> draft value
+  const [imageEditorId, setImageEditorId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -331,14 +388,21 @@ function MedicinesTab() {
 
       {medicines.map((m) => {
         const low = m.stock <= (m.lowStockThreshold || 10);
+        const showImages = imageEditorId === m._id;
         return (
           <div key={m._id} className="sub2">
             <div className="sub2-head">
+              {m.images?.[0] ? (
+                <img src={m.images[0]} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", marginRight: 10 }} />
+              ) : (
+                <div style={{ width: 44, height: 44, borderRadius: 8, background: "var(--surface-2)", marginRight: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>💊</div>
+              )}
               <div className="sub2-title-wrap">
                 <div className="sub2-title">{m.brandName} {m.strength && <span className="muted small">· {m.strength}</span>}</div>
                 <div className="sub2-summary">
                   {m.generic?.name} · {m.manufacturer?.name} · ৳{m.price} (MRP ৳{m.mrp})
                   {m.prescriptionRequired && " · 🩺 Rx"}
+                  {" · "}📷 {m.images?.length || 0}
                 </div>
               </div>
               <button className="icon-btn" onClick={() => discontinue(m._id)}>✕</button>
@@ -346,6 +410,7 @@ function MedicinesTab() {
 
             <div className="action-row">
               <button className="chip-btn" onClick={() => { setEditing(m); setShowForm(true); }}>✏️ Edit</button>
+              <button className={showImages ? "chip-btn on" : "chip-btn"} onClick={() => setImageEditorId(showImages ? null : m._id)}>📷 Photos</button>
               <span className={`pill ${low ? "pill-must" : "pill-opt"}`}>
                 {low ? "⚠ " : ""}Stock: {m.stock}
               </span>
@@ -357,6 +422,13 @@ function MedicinesTab() {
                 <button className="btn sm" onClick={() => saveStock(m._id)}>Update stock</button>
               )}
             </div>
+
+            {showImages && (
+              <ImageManager
+                medicine={m}
+                onChanged={(id, images) => setMedicines((prev) => prev.map((x) => x._id === id ? { ...x, images } : x))}
+              />
+            )}
           </div>
         );
       })}
