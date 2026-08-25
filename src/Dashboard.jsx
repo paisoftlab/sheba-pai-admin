@@ -9,6 +9,8 @@ import Settings from "./Settings";
 import Admins from "./Admins";
 import Pharmacy from "./Pharmacy";
 import Orders from "./Orders";
+import Shops from "./Shops";
+import Riders from "./Riders";
 
 export default function Dashboard({ onLogout }) {
   const [tab, setTab] = useState("verify");
@@ -17,7 +19,7 @@ export default function Dashboard({ onLogout }) {
   const [roleName, setRoleName] = useState("");
   const [roleBangla, setRoleBangla] = useState("");
   // pending counts for tab badges
-  const [pending, setPending] = useState({ verify: 0, submissions: 0, payments: 0, orders: 0 });
+  const [pending, setPending] = useState({ verify: 0, submissions: 0, payments: 0, orders: 0, shops: 0, riders: 0 });
 
   async function loadRoles() {
     try {
@@ -27,17 +29,24 @@ export default function Dashboard({ onLogout }) {
   }
   async function loadCounts() {
     try {
-      const [v, s, p, o] = await Promise.all([
+      const [v, s, p, o, sh, ri] = await Promise.all([
         apiFetch("/api/admin/verifications?status=pending"),
         apiFetch("/api/admin/submissions?status=pending"),
         apiFetch("/api/admin/payments?status=pending"),
         apiFetch("/api/admin/orders?status=pending"),
+        apiFetch("/api/admin/shops?status=pending"),
+        apiFetch("/api/admin/riders?status=pending"),
       ]);
       const vd = v.ok ? await v.json() : [];
       const sd = s.ok ? await s.json() : [];
       const pd = p.ok ? await p.json() : [];
       const od = o.ok ? await o.json() : [];
-      setPending({ verify: vd.length || 0, submissions: sd.length || 0, payments: pd.length || 0, orders: od.length || 0 });
+      const shd = sh.ok ? await sh.json() : [];
+      const rid = ri.ok ? await ri.json() : [];
+      setPending({
+        verify: vd.length || 0, submissions: sd.length || 0, payments: pd.length || 0,
+        orders: od.length || 0, shops: shd.length || 0, riders: rid.length || 0,
+      });
     } catch (e) {}
   }
   useEffect(() => { loadRoles(); loadCounts(); }, []);
@@ -70,6 +79,8 @@ export default function Dashboard({ onLogout }) {
     { key: "submissions", label: "Document proofs", badge: pending.submissions },
     { key: "payments", label: "Payments", badge: pending.payments },
     { key: "orders", label: "Orders", badge: pending.orders },
+    { key: "shops", label: "Shops", badge: pending.shops },
+    { key: "riders", label: "Riders", badge: pending.riders },
     { key: "reports", label: "Overview", badge: null },
     { key: "services", label: "Services", badge: null },
     { key: "pharmacy", label: "Pharmacy", badge: null },
@@ -95,7 +106,7 @@ export default function Dashboard({ onLogout }) {
         {TABS.map((tb) => (
           <button key={tb.key}
             className={tab === tb.key ? "tab active" : "tab"}
-            onClick={() => { setTab(tb.key); if (["verify", "submissions", "payments", "orders"].includes(tb.key)) loadCounts(); }}>
+            onClick={() => { setTab(tb.key); if (["verify", "submissions", "payments", "orders", "shops", "riders"].includes(tb.key)) loadCounts(); }}>
             {tb.label}
             {tb.badge !== null && (
               <span className={`count ${tb.badge === 0 ? "zero" : ""}`}>{tb.badge}</span>
@@ -112,6 +123,8 @@ export default function Dashboard({ onLogout }) {
       {tab === "admins" && <Admins currentUserId={currentUser._id || currentUser.id} />}
       {tab === "pharmacy" && <Pharmacy />}
       {tab === "orders" && <Orders />}
+      {tab === "shops" && <Shops onChange={loadCounts} />}
+      {tab === "riders" && <Riders onChange={loadCounts} />}
       {tab === "services" && <ServiceManager />}
 
       {tab === "roles" && (
