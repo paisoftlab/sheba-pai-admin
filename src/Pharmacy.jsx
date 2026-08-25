@@ -6,6 +6,8 @@ import { apiFetch, API_URL } from "./api";
 function SubTabs({ active, onChange }) {
   const tabs = [
     { key: "medicines", label: "Medicines" },
+    { key: "deals", label: "Deals" },
+    { key: "import", label: "Bulk import" },
     { key: "categories", label: "Categories" },
     { key: "generics", label: "Generics" },
     { key: "manufacturers", label: "Manufacturers" },
@@ -294,6 +296,272 @@ function ImageManager({ medicine, onChanged }) {
   );
 }
 
+
+
+function DealsTab() {
+  const [deals, setDeals] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await apiFetch("/api/admin/medicines?onSale=true&limit=100");
+      if (res.ok) setDeals((await res.json()).medicines);
+    } catch (e) {} finally { setLoading(false); }
+  }
+  useEffect(() => { load(); }, []);
+
+  if (loading) return <div className="center">Loading deals…</div>;
+
+  return (
+    <div>
+      <div className="panel-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div>
+          <h2>Active deals ({deals.length})</h2>
+          <p className="hint">Everything currently discounted, right now — expired or not-yet-started discounts won't appear here.</p>
+        </div>
+        <button className="btn-ghost" onClick={load}>Refresh</button>
+      </div>
+
+      {deals.length === 0 ? (
+        <div className="panel"><div className="empty-state"><div className="big">🏷️</div>No active deals. Go to Medicines → Discount on any product to start one.</div></div>
+      ) : (
+        <ul className="list">
+          {deals.map((m) => (
+            <li key={m._id} className="list-item">
+              <span>
+                <strong>{m.brandName}</strong> {m.strength && <span className="muted small">· {m.strength}</span>}
+                <span className="muted small"> · {m.manufacturer?.name}</span>
+              </span>
+              <span className="row" style={{ gap: 8 }}>
+                <span className="muted small" style={{ textDecoration: "line-through" }}>৳{m.price}</span>
+                <span className="pill pill-must">{m.discountPercent}% OFF</span>
+                <strong style={{ color: "var(--success)" }}>৳{m.effectivePrice}</strong>
+                {m.discountEndsAt && <span className="muted small">ends {new Date(m.discountEndsAt).toLocaleDateString()}</span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function ImportTab() {
+  const [file, setFile] = useState(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [preview, setPreview] = useState(null); // { validCount, invalidCount, valid, invalid }
+  const [committing, setCommitting] = useState(false);
+  const [result, setResult] = useState(null); // { created, updated, errors }
+
+  function downloadTemplate() {
+    const token = localStorage.getItem("adminToken");
+    fetch(`${API_URL}/api/admin/medicines/import/template`, {
+      headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+    })
+      .then((res) => res.blob())
+      .then((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url; a.download = "medicine_import_template.xlsx";
+        document.body.appendChild(a); a.click(); a.remove();
+        URL.revokeObjectURL(url);
+      });
+  }
+
+  async function runPreview() {
+    if (!file) { alert("Choose a .xlsx or .csv file first."); return; }
+    setPreviewing(true);
+    setResult(null);
+    try {
+      const token = localStorage.getItem("adminToken");
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${API_URL}/api/admin/medicines/import/preview`, {
+        method: "POST",
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Could not read that file"); return; }
+      setPreview(data);
+    } catch (err) { alert(err.message); } finally { setPreviewing(false); }
+  }
+
+  async function confirmImport() {
+    if (!preview?.valid?.length) return;
+    setCommitting(true);
+    try {
+      const res = await apiFetch("/api/admin/medicines/import/commit", { method: "POST", body: JSON.stringify({ rows: preview.valid }) });
+      const data = await res.json();
+      if (!res.ok) { alert(data.error || "Import failed"); return; }
+      setResult(data);
+      setPreview(null);
+      setFile(null);
+    } catch (err) { alert(err.message); } finally { setCommitting(false); }
+  }
+
+  return (
+    <div>
+      <section className="panel">
+        <div className="panel-head">
+          <h2>Bulk import medicines</h2>
+          <p className="hint">
+            Add many medicines at once from a spreadsheet. Nothing is saved until you review the
+            preview and confirm — a mistake in your file can never partially corrupt the catalogue.
+            Every generic and manufacturer used in the file must already exist (add them in their
+            own tabs first) — the preview will tell you exactly which ones are missing.
+          </p>
+        </div>
+
+        <div className="row" style={{ marginBottom: 14 }}>
+          <button className="btn-ghost" onClick={downloadTemplate}>⬇ Download template (.xlsx)</button>
+        </div>
+
+        <div className="row" style={{ alignItems: "center" }}>
+          <input type="file" accept=".xlsx,.csv" onChange={(e) => { setFile(e.target.files[0]); setPreview(null); setResult(null); }} />
+          <button className="btn" onClick={runPreview} disabled={!file || previewing}>
+            {previewing ? "Checking…" : "Check file"}
+          </button>
+        </div>
+      </section>
+
+      {preview && (
+        <section className="panel">
+          <div className="panel-head">
+            <h2>Preview — {preview.totalRows} rows found</h2>
+          </div>
+          <div className="row" style={{ gap: 14, marginBottom: 14 }}>
+            <div className="settings-group" style={{ flex: 1 }}>
+              <div className="sg-body" style={{ textAlign: "center" }}>
+                <div className="muted small">Ready to import</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: "var(--success)" }}>{preview.validCount}</div>
+              </div>
+            </div>
+            <div className="settings-group" style={{ flex: 1 }}>
+              <div className="sg-body" style={{ textAlign: "center" }}>
+                <div className="muted small">Have errors</div>
+                <div style={{ fontSize: 24, fontWeight: 800, color: preview.invalidCount > 0 ? "var(--danger)" : "var(--body)" }}>{preview.invalidCount}</div>
+              </div>
+            </div>
+          </div>
+
+          {preview.invalid.length > 0 && (
+            <>
+              <div className="section-label">Rows with errors — fix these in your spreadsheet and re-upload</div>
+              <ul className="list" style={{ marginBottom: 16 }}>
+                {preview.invalid.map((r) => (
+                  <li key={r.rowNum} className="list-item">
+                    <span><strong>Row {r.rowNum}</strong> {r.brandName && <span className="muted small">· {r.brandName}</span>}</span>
+                    <span className="muted small">{r.errors.join("; ")}</span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+
+          {preview.valid.length > 0 && (
+            <>
+              <div className="section-label">Ready to import</div>
+              <ul className="list" style={{ marginBottom: 16, maxHeight: 240, overflowY: "auto" }}>
+                {preview.valid.slice(0, 50).map((r) => (
+                  <li key={r.rowNum} className="list-item">
+                    <span>Row {r.rowNum} · <strong>{r.brandName}</strong> {r.strength}</span>
+                    <span className="muted small">৳{r.price} · stock {r.stock}</span>
+                  </li>
+                ))}
+              </ul>
+              {preview.valid.length > 50 && <p className="muted small">…and {preview.valid.length - 50} more.</p>}
+              <button className="btn" onClick={confirmImport} disabled={committing}>
+                {committing ? "Importing…" : `Confirm import (${preview.valid.length} medicines)`}
+              </button>
+            </>
+          )}
+        </section>
+      )}
+
+      {result && (
+        <section className="panel">
+          <div className="panel-head"><h2>Import complete</h2></div>
+          <p>✅ {result.created} created · 🔄 {result.updated} updated{result.errors.length > 0 && ` · ⚠ ${result.errors.length} failed`}</p>
+          {result.errors.length > 0 && (
+            <ul className="list">
+              {result.errors.map((e, i) => (
+                <li key={i} className="list-item"><span>{e.brandName}</span><span className="muted small">{e.error}</span></li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+    </div>
+  );
+}
+
+
+function DiscountEditor({ medicine, onChanged }) {
+  const [percent, setPercent] = useState(medicine.discountPercent || "");
+  const [startsAt, setStartsAt] = useState(medicine.discountStartsAt ? medicine.discountStartsAt.slice(0, 10) : "");
+  const [endsAt, setEndsAt] = useState(medicine.discountEndsAt ? medicine.discountEndsAt.slice(0, 10) : "");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const body = {
+      discountPercent: Number(percent) || 0,
+      discountStartsAt: startsAt || null,
+      discountEndsAt: endsAt || null,
+    };
+    if (body.discountPercent > 0 && !endsAt) {
+      if (!confirm("No end date set — this discount will stay active until you remove it. Continue?")) return;
+    }
+    setSaving(true);
+    try {
+      const res = await apiFetch(`/api/admin/medicines/${medicine._id}`, { method: "PUT", body: JSON.stringify(body) });
+      const data = await res.json();
+      if (res.ok) onChanged(medicine._id, data);
+      else alert(data.error || "Failed");
+    } catch (err) { alert(err.message); } finally { setSaving(false); }
+  }
+
+  async function removeDiscount() {
+    setPercent(""); setStartsAt(""); setEndsAt("");
+    setSaving(true);
+    try {
+      const res = await apiFetch(`/api/admin/medicines/${medicine._id}`, { method: "PUT", body: JSON.stringify({ discountPercent: 0, discountStartsAt: null, discountEndsAt: null }) });
+      const data = await res.json();
+      if (res.ok) onChanged(medicine._id, data);
+    } catch (err) { alert(err.message); } finally { setSaving(false); }
+  }
+
+  const preview = percent > 0 ? Math.round(medicine.price * (1 - Number(percent) / 100) * 100) / 100 : null;
+
+  return (
+    <div className="editor">
+      <p className="editor-help">
+        The discount applies automatically only between the start and end dates — no need to remember
+        to switch it off. Leave dates blank for an always-on discount until you remove it.
+      </p>
+      <div className="field-grid">
+        <label className="field"><span className="field-label">Discount %</span>
+          <input className="input sm" type="number" min="0" max="90" value={percent}
+            onChange={(e) => setPercent(e.target.value)} style={{ maxWidth: 90 }} /></label>
+        <label className="field"><span className="field-label">Starts (optional)</span>
+          <input className="input sm" type="date" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} /></label>
+        <label className="field"><span className="field-label">Ends (optional)</span>
+          <input className="input sm" type="date" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} /></label>
+      </div>
+      {preview != null && (
+        <p className="editor-help">
+          Regular price ৳{medicine.price} → <strong style={{ color: "var(--success)" }}>৳{preview}</strong> while the discount is active.
+        </p>
+      )}
+      <div className="row">
+        <button className="btn sm" onClick={save} disabled={saving}>{saving ? "Saving…" : "Save discount"}</button>
+        {medicine.discountPercent > 0 && <button className="btn-ghost sm" onClick={removeDiscount} disabled={saving}>Remove discount</button>}
+      </div>
+    </div>
+  );
+}
+
 function MedicinesTab() {
   const [medicines, setMedicines] = useState([]);
   const [generics, setGenerics] = useState([]);
@@ -305,6 +573,7 @@ function MedicinesTab() {
   const [editing, setEditing] = useState(null);
   const [stockEdit, setStockEdit] = useState({}); // id -> draft value
   const [imageEditorId, setImageEditorId] = useState(null);
+  const [discountEditorId, setDiscountEditorId] = useState(null);
 
   async function load() {
     setLoading(true);
@@ -389,6 +658,7 @@ function MedicinesTab() {
       {medicines.map((m) => {
         const low = m.stock <= (m.lowStockThreshold || 10);
         const showImages = imageEditorId === m._id;
+        const showDiscount = discountEditorId === m._id;
         return (
           <div key={m._id} className="sub2">
             <div className="sub2-head">
@@ -403,6 +673,7 @@ function MedicinesTab() {
                   {m.generic?.name} · {m.manufacturer?.name} · ৳{m.price} (MRP ৳{m.mrp})
                   {m.prescriptionRequired && " · 🩺 Rx"}
                   {" · "}📷 {m.images?.length || 0}
+                  {m.onSale && <span style={{ color: "var(--success)", fontWeight: 700 }}> · 🏷️ {m.discountPercent}% OFF → ৳{m.effectivePrice}</span>}
                 </div>
               </div>
               <button className="icon-btn" onClick={() => discontinue(m._id)}>✕</button>
@@ -411,6 +682,7 @@ function MedicinesTab() {
             <div className="action-row">
               <button className="chip-btn" onClick={() => { setEditing(m); setShowForm(true); }}>✏️ Edit</button>
               <button className={showImages ? "chip-btn on" : "chip-btn"} onClick={() => setImageEditorId(showImages ? null : m._id)}>📷 Photos</button>
+              <button className={showDiscount ? "chip-btn on" : "chip-btn"} onClick={() => setDiscountEditorId(showDiscount ? null : m._id)}>🏷️ Discount</button>
               <span className={`pill ${low ? "pill-must" : "pill-opt"}`}>
                 {low ? "⚠ " : ""}Stock: {m.stock}
               </span>
@@ -427,6 +699,12 @@ function MedicinesTab() {
               <ImageManager
                 medicine={m}
                 onChanged={(id, images) => setMedicines((prev) => prev.map((x) => x._id === id ? { ...x, images } : x))}
+              />
+            )}
+            {showDiscount && (
+              <DiscountEditor
+                medicine={m}
+                onChanged={(id, updated) => { setMedicines((prev) => prev.map((x) => x._id === id ? { ...x, ...updated } : x)); setDiscountEditorId(null); }}
               />
             )}
           </div>
@@ -695,6 +973,8 @@ export default function Pharmacy() {
     <div>
       <SubTabs active={sub} onChange={setSub} />
       {sub === "medicines" && <MedicinesTab />}
+      {sub === "deals" && <DealsTab />}
+      {sub === "import" && <ImportTab />}
       {sub === "categories" && <CategoriesTab />}
       {sub === "generics" && <GenericsTab />}
       {sub === "manufacturers" && <ManufacturersTab />}
