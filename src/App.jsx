@@ -1,23 +1,32 @@
 import { useState, useEffect } from "react";
 import Login from "./Login";
 import Dashboard from "./Dashboard";
+import ShopDashboard from "./ShopDashboard";
 import "./App.css";
 
 export default function App() {
-  const [loggedIn, setLoggedIn] = useState(false);
+  const [role, setRole] = useState(null); // null = logged out
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
     const token = localStorage.getItem("adminToken");
-    setLoggedIn(!!token);
+    const user = JSON.parse(localStorage.getItem("adminUser") || "{}");
+    setRole(token ? user.role : null);
     setChecking(false);
   }, []);
 
   if (checking) return null;
 
-  return loggedIn ? (
-    <Dashboard onLogout={() => setLoggedIn(false)} />
-  ) : (
-    <Login onLogin={() => setLoggedIn(true)} />
-  );
+  function logout() {
+    localStorage.removeItem("adminToken");
+    localStorage.removeItem("adminUser");
+    setRole(null);
+  }
+
+  if (!role) return <Login onLogin={() => {
+    const user = JSON.parse(localStorage.getItem("adminUser") || "{}");
+    setRole(user.role);
+  }} />;
+
+  return role === "shop" ? <ShopDashboard onLogout={logout} /> : <Dashboard onLogout={logout} />;
 }

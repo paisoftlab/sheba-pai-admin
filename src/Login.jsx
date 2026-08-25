@@ -19,7 +19,7 @@ export default function Login({ onLogin }) {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Login failed"); return; }
-      if (data.user.role !== "admin") { setError("This account is not an admin."); return; }
+      if (!["admin", "shop"].includes(data.user.role)) { setError("This account isn't set up for this login."); return; }
       localStorage.setItem("adminToken", data.token);
       localStorage.setItem("adminUser", JSON.stringify(data.user));
       onLogin();
