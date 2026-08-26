@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { API_URL } from "./api";
 
-export default function Login({ onLogin }) {
+export default function Login({ onLogin, onShowShopSignup }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -55,6 +55,12 @@ export default function Login({ onLogin }) {
         <button className="btn block" disabled={loading}>
           {loading ? "Signing in…" : "Sign in"}
         </button>
+
+        {onShowShopSignup && (
+          <button type="button" className="btn-ghost block" style={{ marginTop: 10 }} onClick={onShowShopSignup}>
+            New shop? Create an account
+          </button>
+        )}
       </form>
     </div>
   );
