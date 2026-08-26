@@ -87,6 +87,12 @@ export default function Orders() {
                 ))}
               </ul>
               <div style={{ marginTop: 8 }}><strong>Total: ৳{o.total}</strong> · {o.paymentMethod === "cod" ? "Cash on delivery" : o.paymentMethod}</div>
+              <div style={{ marginTop: 6 }}>
+                <strong>Fulfillment:</strong> {o.fulfillmentType === "local" ? "🏍️ Local shop + rider" : "📦 Central courier"}
+              </div>
+              {o.fulfillmentType === "central" && o.routingNote && (
+                <div className="editor-help" style={{ marginTop: 4 }}>Why not local: {o.routingNote}</div>
+              )}
             </div>
 
             {o.prescriptionUrl && (
