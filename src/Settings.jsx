@@ -2,6 +2,27 @@ import { useState, useEffect } from "react";
 import { apiFetch } from "./api";
 
 /* Defined at module level so inputs never lose focus on re-render. */
+function TextSetting({ label, hint, value, placeholder, onChange }) {
+  return (
+    <div className="settings-group">
+      <div className="sg-head">
+        <span className="sg-title">{label}</span>
+      </div>
+      <div className="sg-body">
+        <input
+          className="input sm"
+          type="text"
+          placeholder={placeholder}
+          style={{ maxWidth: 240 }}
+          value={value || ""}
+          onChange={(e) => onChange(e.target.value)}
+        />
+        <p className="sg-note">{hint}</p>
+      </div>
+    </div>
+  );
+}
+
 function NumberSetting({ label, hint, value, unit, min, max, onChange }) {
   return (
     <div className="settings-group">
@@ -46,6 +67,7 @@ export default function Settings() {
           maxConcurrentJobs: s.maxConcurrentJobs,
           searchRadiusKm: s.searchRadiusKm,
           browsePageSize: s.browsePageSize,
+          supportWhatsAppNumber: s.supportWhatsAppNumber,
         });
       }
     } catch (e) {} finally { setLoading(false); }
@@ -76,6 +98,7 @@ export default function Settings() {
           maxConcurrentJobs: s.maxConcurrentJobs,
           searchRadiusKm: s.searchRadiusKm,
           browsePageSize: s.browsePageSize,
+          supportWhatsAppNumber: s.supportWhatsAppNumber,
         });
         setSaved(true);
       } else {
@@ -135,6 +158,15 @@ export default function Settings() {
           unit="per page"
           min={3} max={50}
           onChange={(v) => setField("browsePageSize", v)}
+        />
+
+        <div className="section-label" style={{ marginTop: 20 }}>Call for price</div>
+        <TextSetting
+          label="Support WhatsApp number"
+          hint="The number 'Call for price' buttons open a chat to, in international format (e.g. 8801XXXXXXXXX). Leave blank to disable the button in the app."
+          value={draft.supportWhatsAppNumber}
+          placeholder="8801XXXXXXXXX"
+          onChange={(v) => setField("supportWhatsAppNumber", v)}
         />
 
         <div className="row" style={{ marginTop: 22, alignItems: "center" }}>

@@ -80,15 +80,18 @@ function DocumentsEditor({ service, list, form, onFieldChange, onAdd, onEdit, on
 
 /* Pricing editor (opens on demand) */
 function PricingEditor({ sub, onSave }) {
+  const [bookingMode, setBookingMode] = useState(sub.bookingMode || "instant");
   const [chargeType, setChargeType] = useState(sub.chargeType || "hourly");
   const [pricingMode, setPricingMode] = useState(sub.pricingMode || "helper_flexible");
   const [adminAmount, setAdminAmount] = useState(sub.adminAmount ?? "");
   const [commissionPercent, setCommissionPercent] = useState(sub.commissionPercent ?? 0);
   const [dirty, setDirty] = useState(false);
   const needsAmount = pricingMode === "admin_fixed" || pricingMode === "admin_default";
+  const isQuote = bookingMode === "quote";
   const mark = (setter) => (v) => { setter(v); setDirty(true); };
   async function save() {
     await onSave(sub._id, {
+      bookingMode,
       chargeType, pricingMode,
       adminAmount: needsAmount ? Number(adminAmount) || 0 : null,
       commissionPercent: Number(commissionPercent) || 0,
@@ -97,41 +100,66 @@ function PricingEditor({ sub, onSave }) {
   }
   return (
     <div className="editor">
-      <div className="field-grid">
-        <label className="field">
-          <span className="field-label">How it's charged</span>
-          <select className="input sm" value={chargeType} onChange={(e) => mark(setChargeType)(e.target.value)}>
-            <option value="hourly">Per hour</option><option value="fixed">Per job (fixed)</option>
-          </select>
-        </label>
-        <label className="field">
-          <span className="field-label">Who sets the price</span>
-          <select className="input sm" value={pricingMode} onChange={(e) => mark(setPricingMode)(e.target.value)}>
-            <option value="helper_flexible">Caregiver decides</option>
-            <option value="admin_default">Default, caregiver can change</option>
-            <option value="admin_fixed">Fixed by you (locked)</option>
-          </select>
-        </label>
-        {needsAmount && (
-          <label className="field">
-            <span className="field-label">Amount ৳</span>
-            <input className="input sm" type="number" value={adminAmount} onChange={(e) => mark(setAdminAmount)(e.target.value)} />
+      <label className="field" style={{ marginBottom: 14 }}>
+        <span className="field-label">Booking type</span>
+        <select className="input sm" value={bookingMode} onChange={(e) => mark(setBookingMode)(e.target.value)}>
+          <option value="instant">Instant booking — patient sees prices, picks a caregiver</option>
+          <option value="quote">Call for price — no price shown, opens WhatsApp instead</option>
+        </select>
+      </label>
+
+      {isQuote ? (
+        <p className="editor-help">
+          Patients see a "Call for price" button instead of caregiver prices. After the
+          conversation, create the actual booking from the <strong>Manual Booking</strong> tab —
+          you'll set the specific price and commission for that case there.
+          {Number(commissionPercent) > 0 && <> The commission % below is just a suggested default when creating that booking.</>}
+          <br /><br />
+          <label className="field" style={{ maxWidth: 140 }}>
+            <span className="field-label">Suggested commission %</span>
+            <input className="input sm" type="number" min="0" max="100"
+              value={commissionPercent} onChange={(e) => mark(setCommissionPercent)(e.target.value)} />
           </label>
-        )}
-        <label className="field">
-          <span className="field-label">Platform commission %</span>
-          <input className="input sm" type="number" min="0" max="100" style={{ maxWidth: 90 }}
-            value={commissionPercent} onChange={(e) => mark(setCommissionPercent)(e.target.value)} />
-        </label>
-      </div>
-      <p className="editor-help">
-        {pricingMode === "admin_fixed" && "Caregivers cannot change this price. "}
-        {pricingMode === "admin_default" && "Caregivers start from your amount but may adjust it. "}
-        {pricingMode === "helper_flexible" && "Each caregiver sets their own price. "}
-        Charged {chargeType === "hourly" ? "per hour" : "per job"}.
-        {Number(commissionPercent) > 0 && <> The platform takes <strong>{commissionPercent}%</strong> of each completed job as commission.</>}
-      </p>
-      {dirty && <button className="btn sm" onClick={save}>Save price</button>}
+        </p>
+      ) : (
+        <>
+          <div className="field-grid">
+            <label className="field">
+              <span className="field-label">How it's charged</span>
+              <select className="input sm" value={chargeType} onChange={(e) => mark(setChargeType)(e.target.value)}>
+                <option value="hourly">Per hour</option><option value="fixed">Per job (fixed)</option>
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">Who sets the price</span>
+              <select className="input sm" value={pricingMode} onChange={(e) => mark(setPricingMode)(e.target.value)}>
+                <option value="helper_flexible">Caregiver decides</option>
+                <option value="admin_default">Default, caregiver can change</option>
+                <option value="admin_fixed">Fixed by you (locked)</option>
+              </select>
+            </label>
+            {needsAmount && (
+              <label className="field">
+                <span className="field-label">Amount ৳</span>
+                <input className="input sm" type="number" value={adminAmount} onChange={(e) => mark(setAdminAmount)(e.target.value)} />
+              </label>
+            )}
+            <label className="field">
+              <span className="field-label">Platform commission %</span>
+              <input className="input sm" type="number" min="0" max="100" style={{ maxWidth: 90 }}
+                value={commissionPercent} onChange={(e) => mark(setCommissionPercent)(e.target.value)} />
+            </label>
+          </div>
+          <p className="editor-help">
+            {pricingMode === "admin_fixed" && "Caregivers cannot change this price. "}
+            {pricingMode === "admin_default" && "Caregivers start from your amount but may adjust it. "}
+            {pricingMode === "helper_flexible" && "Each caregiver sets their own price. "}
+            Charged {chargeType === "hourly" ? "per hour" : "per job"}.
+            {Number(commissionPercent) > 0 && <> The platform takes <strong>{commissionPercent}%</strong> of each completed job as commission.</>}
+          </p>
+        </>
+      )}
+      {dirty && <button className="btn sm" onClick={save}>Save</button>}
     </div>
   );
 }
@@ -180,7 +208,9 @@ function SubServiceCard(props) {
   const [open, setOpen] = useState(null); // 'price' | 'docs' | 'patient' | 'name' | null
   const toggle = (k) => setOpen(open === k ? null : k);
 
+  const isQuote = sub.bookingMode === "quote";
   const priceLabel = (() => {
+    if (isQuote) return "📞 call for price";
     if (sub.pricingMode === "admin_fixed" || sub.pricingMode === "admin_default") {
       return `৳${sub.adminAmount ?? "?"}${sub.chargeType === "hourly" ? "/hr" : ""}`;
     }
@@ -199,7 +229,7 @@ function SubServiceCard(props) {
         ) : (
           <div className="sub2-title-wrap">
             <div className="sub2-title">{sub.nameBangla} <span className="muted small">· {sub.name}</span></div>
-            <div className="sub2-summary">💵 {priceLabel} · 🏦 {sub.commissionPercent || 0}% comm · 📄 {docCount} docs · 🛡️ {patientLabel}</div>
+            <div className="sub2-summary">💵 {priceLabel}{!isQuote && <> · 🏦 {sub.commissionPercent || 0}% comm</>} · 📄 {docCount} docs · 🛡️ {patientLabel}</div>
           </div>
         )}
         <button className="icon-btn" onClick={() => ctx.delService(sub._id)}>✕</button>

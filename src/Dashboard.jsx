@@ -9,6 +9,7 @@ import Settings from "./Settings";
 import Admins from "./Admins";
 import Pharmacy from "./Pharmacy";
 import Orders from "./Orders";
+import ManualBooking from "./ManualBooking";
 import Shops from "./Shops";
 import Riders from "./Riders";
 
@@ -83,6 +84,7 @@ export default function Dashboard({ onLogout }) {
     { key: "riders", label: "Riders", badge: pending.riders },
     { key: "reports", label: "Overview", badge: null },
     { key: "services", label: "Services", badge: null },
+    { key: "manual", label: "Manual Booking", badge: null },
     { key: "pharmacy", label: "Pharmacy", badge: null },
     { key: "roles", label: "Professions", badge: null },
     { key: "settings", label: "Settings", badge: null },
@@ -126,6 +128,7 @@ export default function Dashboard({ onLogout }) {
       {tab === "shops" && <Shops onChange={loadCounts} />}
       {tab === "riders" && <Riders onChange={loadCounts} />}
       {tab === "services" && <ServiceManager />}
+      {tab === "manual" && <ManualBooking />}
 
       {tab === "roles" && (
         <section className="panel">
