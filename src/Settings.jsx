@@ -68,6 +68,7 @@ export default function Settings() {
           searchRadiusKm: s.searchRadiusKm,
           browsePageSize: s.browsePageSize,
           supportWhatsAppNumber: s.supportWhatsAppNumber,
+          emergencyContactNumber: s.emergencyContactNumber,
         });
       }
     } catch (e) {} finally { setLoading(false); }
@@ -99,6 +100,7 @@ export default function Settings() {
           searchRadiusKm: s.searchRadiusKm,
           browsePageSize: s.browsePageSize,
           supportWhatsAppNumber: s.supportWhatsAppNumber,
+          emergencyContactNumber: s.emergencyContactNumber,
         });
         setSaved(true);
       } else {
@@ -167,6 +169,15 @@ export default function Settings() {
           value={draft.supportWhatsAppNumber}
           placeholder="8801XXXXXXXXX"
           onChange={(v) => setField("supportWhatsAppNumber", v)}
+        />
+
+        <div className="section-label" style={{ marginTop: 20 }}>Emergency</div>
+        <TextSetting
+          label="Emergency contact number"
+          hint="The number the app's emergency 'Call Now' button dials directly. Use your own dispatch/support line, not a personal number. Leave blank to hide the emergency button in the app."
+          value={draft.emergencyContactNumber}
+          placeholder="01XXXXXXXXX"
+          onChange={(v) => setField("emergencyContactNumber", v)}
         />
 
         <div className="row" style={{ marginTop: 22, alignItems: "center" }}>
