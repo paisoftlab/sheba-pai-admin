@@ -92,6 +92,13 @@ function CategoriesTab() {
     if (res.ok) { setShowForm(false); setEditing(null); load(); }
     else { const d = await res.json(); alert(d.error || "Failed"); }
   }
+  async function seedDefaults() {
+    const res = await apiFetch("/api/admin/categories/seed-defaults", { method: "POST" });
+    const d = await res.json();
+    if (!res.ok) { alert(d.error || "Failed"); return; }
+    alert(`${d.created} categories added${d.skipped ? `, ${d.skipped} already existed` : ""}.`);
+    load();
+  }
   async function remove(id) {
     if (!confirm("Delete this category?")) return;
     const res = await apiFetch(`/api/admin/categories/${id}`, { method: "DELETE" });
@@ -111,7 +118,10 @@ function CategoriesTab() {
               not clinical drug classes. Keep this list short and easy to scan.
             </p>
           </div>
-          {!showForm && <button className="btn sm" onClick={() => { setEditing(null); setShowForm(true); }}>+ Add category</button>}
+          <div className="row" style={{ gap: 8 }}>
+            <button className="btn-ghost sm" onClick={seedDefaults}>Add standard categories</button>
+            {!showForm && <button className="btn sm" onClick={() => { setEditing(null); setShowForm(true); }}>+ Add category</button>}
+          </div>
         </div>
         {showForm && <CategoryForm initial={editing} onSave={save} onCancel={() => { setShowForm(false); setEditing(null); }} />}
       </section>
@@ -348,6 +358,7 @@ function DealsTab() {
 }
 
 function ImportTab() {
+  const [autoCreate, setAutoCreate] = useState(true);
   const [file, setFile] = useState(null);
   const [previewing, setPreviewing] = useState(false);
   const [preview, setPreview] = useState(null); // { validCount, invalidCount, valid, invalid }
@@ -377,6 +388,7 @@ function ImportTab() {
       const token = localStorage.getItem("adminToken");
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("autoCreate", autoCreate ? "true" : "false");
       const res = await fetch(`${API_URL}/api/admin/medicines/import/preview`, {
         method: "POST",
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
@@ -409,8 +421,8 @@ function ImportTab() {
           <p className="hint">
             Add many medicines at once from a spreadsheet. Nothing is saved until you review the
             preview and confirm — a mistake in your file can never partially corrupt the catalogue.
-            Every generic and manufacturer used in the file must already exist (add them in their
-            own tabs first) — the preview will tell you exactly which ones are missing.
+            The optional <strong>categories</strong> column (comma separated, e.g. "Fever &amp; Pain") places each
+            medicine under the store's category tiles — the template lists the exact valid names.
           </p>
         </div>
 
@@ -420,6 +432,10 @@ function ImportTab() {
 
         <div className="row" style={{ alignItems: "center" }}>
           <input type="file" accept=".xlsx,.csv" onChange={(e) => { setFile(e.target.files[0]); setPreview(null); setResult(null); }} />
+          <label className="chip" style={{ display: "inline-flex" }}>
+            <input type="checkbox" checked={autoCreate} onChange={(e) => { setAutoCreate(e.target.checked); setPreview(null); }} />
+            Create missing generics &amp; manufacturers
+          </label>
           <button className="btn" onClick={runPreview} disabled={!file || previewing}>
             {previewing ? "Checking…" : "Check file"}
           </button>
@@ -460,6 +476,20 @@ function ImportTab() {
             </>
           )}
 
+          {(preview.willCreate?.generics?.length > 0 || preview.willCreate?.manufacturers?.length > 0) && (
+            <div className="settings-group" style={{ marginBottom: 16 }}>
+              <div className="sg-body">
+                <div className="section-label" style={{ marginTop: 0 }}>Will also be created (name only — add details later in their tabs)</div>
+                {preview.willCreate.manufacturers.length > 0 && (
+                  <p className="small"><strong>{preview.willCreate.manufacturers.length} manufacturers:</strong> {preview.willCreate.manufacturers.join(", ")}</p>
+                )}
+                {preview.willCreate.generics.length > 0 && (
+                  <p className="small"><strong>{preview.willCreate.generics.length} generics:</strong> {preview.willCreate.generics.join(", ")}</p>
+                )}
+              </div>
+            </div>
+          )}
+
           {preview.valid.length > 0 && (
             <>
               <div className="section-label">Ready to import</div>
@@ -467,7 +497,7 @@ function ImportTab() {
                 {preview.valid.slice(0, 50).map((r) => (
                   <li key={r.rowNum} className="list-item">
                     <span>Row {r.rowNum} · <strong>{r.brandName}</strong> {r.strength}</span>
-                    <span className="muted small">৳{r.price} · stock {r.stock}</span>
+                    <span className="muted small">৳{r.price} · stock {r.stock}{r.categoryNames?.length ? ` · ${r.categoryNames.join(", ")}` : ""}</span>
                   </li>
                 ))}
               </ul>
@@ -484,6 +514,9 @@ function ImportTab() {
         <section className="panel">
           <div className="panel-head"><h2>Import complete</h2></div>
           <p>✅ {result.created} created · 🔄 {result.updated} updated{result.errors.length > 0 && ` · ⚠ ${result.errors.length} failed`}</p>
+          {(result.genericsCreated > 0 || result.manufacturersCreated > 0) && (
+            <p className="muted small">Also added {result.manufacturersCreated || 0} manufacturers and {result.genericsCreated || 0} generics — open their tabs to add Bangla names and clinical details.</p>
+          )}
           {result.errors.length > 0 && (
             <ul className="list">
               {result.errors.map((e, i) => (
@@ -574,12 +607,13 @@ function MedicinesTab() {
   const [stockEdit, setStockEdit] = useState({}); // id -> draft value
   const [imageEditorId, setImageEditorId] = useState(null);
   const [discountEditorId, setDiscountEditorId] = useState(null);
+  const [status, setStatus] = useState("all"); // all | active | discontinued
 
   async function load() {
     setLoading(true);
     try {
       const [mRes, gRes, manRes, catRes] = await Promise.all([
-        apiFetch(`/api/admin/medicines${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+        apiFetch(`/api/admin/medicines?${new URLSearchParams({ ...(q ? { q } : {}), ...(status !== "all" ? { status } : {}) })}`),
         apiFetch("/api/admin/generics"),
         apiFetch("/api/admin/manufacturers"),
         apiFetch("/api/admin/categories"),
@@ -590,7 +624,7 @@ function MedicinesTab() {
       if (catRes.ok) setCategories(await catRes.json());
     } catch (e) {} finally { setLoading(false); }
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [status]);
 
   async function saveMedicine(body) {
     const url = editing ? `/api/admin/medicines/${editing._id}` : "/api/admin/medicines";
@@ -606,10 +640,23 @@ function MedicinesTab() {
     if (res.ok) { setStockEdit((p) => { const n = { ...p }; delete n[id]; return n; }); load(); }
   }
 
-  async function discontinue(id) {
-    if (!confirm("Discontinue this medicine? It will stop showing to patients.")) return;
-    const res = await apiFetch(`/api/admin/medicines/${id}`, { method: "DELETE" });
-    if (res.ok) load();
+  /** Hide from the store (keeps it for order history) or bring it back. */
+  async function toggleHidden(m) {
+    const hide = !m.isDiscontinued;
+    if (hide && !confirm(`Hide ${m.brandName} from the store? Patients won't see it, but you can restore it later.`)) return;
+    const res = await apiFetch(`/api/admin/medicines/${m._id}/discontinue`, { method: "PATCH", body: JSON.stringify({ discontinued: hide }) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Could not update"); return; }
+    load();
+  }
+
+  /** Permanent delete — the server refuses if any order contains it. */
+  async function deleteForever(m) {
+    if (!confirm(`Permanently delete ${m.brandName}${m.strength ? " " + m.strength : ""}? This cannot be undone.`)) return;
+    const res = await apiFetch(`/api/admin/medicines/${m._id}`, { method: "DELETE" });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(d.error || "Could not delete"); return; }
+    load();
   }
 
   if (loading && medicines.length === 0) return <div className="center">Loading medicines…</div>;
@@ -642,6 +689,11 @@ function MedicinesTab() {
             <input className="input sm" placeholder="Search brand name…" value={q}
               onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === "Enter" && load()} style={{ flex: 1 }} />
             <button className="btn-ghost sm" onClick={load}>Search</button>
+            <select className="input sm" value={status} onChange={(e) => setStatus(e.target.value)} style={{ maxWidth: 190 }}>
+              <option value="all">All medicines</option>
+              <option value="active">In store</option>
+              <option value="discontinued">Hidden from store</option>
+            </select>
           </div>
         )}
 
@@ -660,7 +712,7 @@ function MedicinesTab() {
         const showImages = imageEditorId === m._id;
         const showDiscount = discountEditorId === m._id;
         return (
-          <div key={m._id} className="sub2">
+          <div key={m._id} className="sub2" style={m.isDiscontinued ? { opacity: 0.6 } : undefined}>
             <div className="sub2-head">
               {m.images?.[0] ? (
                 <img src={m.images[0]} alt="" style={{ width: 44, height: 44, borderRadius: 8, objectFit: "cover", marginRight: 10 }} />
@@ -668,7 +720,10 @@ function MedicinesTab() {
                 <div style={{ width: 44, height: 44, borderRadius: 8, background: "var(--surface-2)", marginRight: 10, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18 }}>💊</div>
               )}
               <div className="sub2-title-wrap">
-                <div className="sub2-title">{m.brandName} {m.strength && <span className="muted small">· {m.strength}</span>}</div>
+                <div className="sub2-title">
+                  {m.brandName} {m.strength && <span className="muted small">· {m.strength}</span>}
+                  {m.isDiscontinued && <span className="pill pill-must" style={{ marginLeft: 8 }}>Hidden from store</span>}
+                </div>
                 <div className="sub2-summary">
                   {m.generic?.name} · {m.manufacturer?.name} · ৳{m.price} (MRP ৳{m.mrp})
                   {m.prescriptionRequired && " · 🩺 Rx"}
@@ -676,7 +731,10 @@ function MedicinesTab() {
                   {m.onSale && <span style={{ color: "var(--success)", fontWeight: 700 }}> · 🏷️ {m.discountPercent}% OFF → ৳{m.effectivePrice}</span>}
                 </div>
               </div>
-              <button className="icon-btn" onClick={() => discontinue(m._id)}>✕</button>
+              <div className="row" style={{ gap: 6, flexShrink: 0 }}>
+                <button className="btn-ghost sm" onClick={() => toggleHidden(m)}>{m.isDiscontinued ? "Restore" : "Hide"}</button>
+                <button className="btn-danger" onClick={() => deleteForever(m)}>Delete</button>
+              </div>
             </div>
 
             <div className="action-row">
