@@ -10,6 +10,8 @@ import Admins from "./Admins";
 import Pharmacy from "./Pharmacy";
 import Orders from "./Orders";
 import ManualBooking from "./ManualBooking";
+import Banners from "./Banners";
+import Doctors from "./Doctors";
 import Shops from "./Shops";
 import Riders from "./Riders";
 
@@ -85,7 +87,9 @@ export default function Dashboard({ onLogout }) {
     { key: "reports", label: "Overview", badge: null },
     { key: "services", label: "Services", badge: null },
     { key: "manual", label: "Manual Booking", badge: null },
+    { key: "banners", label: "Banners", badge: null },
     { key: "pharmacy", label: "Pharmacy", badge: null },
+    { key: "doctors", label: "Doctors", badge: null },
     { key: "roles", label: "Professions", badge: null },
     { key: "settings", label: "Settings", badge: null },
     { key: "admins", label: "Admins", badge: null },
@@ -124,11 +128,13 @@ export default function Dashboard({ onLogout }) {
       {tab === "settings" && <Settings />}
       {tab === "admins" && <Admins currentUserId={currentUser._id || currentUser.id} />}
       {tab === "pharmacy" && <Pharmacy />}
+      {tab === "doctors" && <Doctors />}
       {tab === "orders" && <Orders />}
       {tab === "shops" && <Shops onChange={loadCounts} />}
       {tab === "riders" && <Riders onChange={loadCounts} />}
       {tab === "services" && <ServiceManager />}
       {tab === "manual" && <ManualBooking />}
+      {tab === "banners" && <Banners />}
 
       {tab === "roles" && (
         <section className="panel">
