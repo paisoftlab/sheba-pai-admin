@@ -69,6 +69,9 @@ export default function Settings() {
           browsePageSize: s.browsePageSize,
           supportWhatsAppNumber: s.supportWhatsAppNumber,
           emergencyContactNumber: s.emergencyContactNumber,
+          privacyPolicyUrl: s.privacyPolicyUrl,
+          termsUrl: s.termsUrl,
+          accountDeletionUrl: s.accountDeletionUrl,
         });
       }
     } catch (e) {} finally { setLoading(false); }
@@ -101,6 +104,9 @@ export default function Settings() {
           browsePageSize: s.browsePageSize,
           supportWhatsAppNumber: s.supportWhatsAppNumber,
           emergencyContactNumber: s.emergencyContactNumber,
+          privacyPolicyUrl: s.privacyPolicyUrl,
+          termsUrl: s.termsUrl,
+          accountDeletionUrl: s.accountDeletionUrl,
         });
         setSaved(true);
       } else {
@@ -178,6 +184,29 @@ export default function Settings() {
           value={draft.emergencyContactNumber}
           placeholder="01XXXXXXXXX"
           onChange={(v) => setField("emergencyContactNumber", v)}
+        />
+
+        <div className="section-label" style={{ marginTop: 20 }}>Legal pages (required for the Play Store)</div>
+        <TextSetting
+          label="Privacy policy link"
+          hint="The public web address of your privacy policy page (e.g. your Google Site). Shown in the app on sign-up and profile screens. Google Play requires this, and it must be the SAME address you enter in Play Console."
+          value={draft.privacyPolicyUrl}
+          placeholder="https://sites.google.com/view/…"
+          onChange={(v) => setField("privacyPolicyUrl", v)}
+        />
+        <TextSetting
+          label="Terms & conditions link"
+          hint="The public web address of your terms page. Shown next to the privacy policy link."
+          value={draft.termsUrl}
+          placeholder="https://sites.google.com/view/…"
+          onChange={(v) => setField("termsUrl", v)}
+        />
+        <TextSetting
+          label="Account deletion page link"
+          hint="The public web page explaining how to delete an account (including by contacting you). Google Play asks for this separately. Shown on the in-app Delete Account screen as an alternative."
+          value={draft.accountDeletionUrl}
+          placeholder="https://sites.google.com/view/…"
+          onChange={(v) => setField("accountDeletionUrl", v)}
         />
 
         <div className="row" style={{ marginTop: 22, alignItems: "center" }}>
