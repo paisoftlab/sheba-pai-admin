@@ -76,7 +76,17 @@ export default function Orders() {
             </div>
 
             <div className="review-meta">
-              <strong>Address:</strong> {o.address || "—"}<br />
+              {o.orderMode === "form" ? (
+                <div style={{ marginBottom: 8 }}>
+                  <strong>Deliver to:</strong> {o.recipientName || "—"} · <a href={`tel:${o.contactPhone}`}>{o.contactPhone}</a><br />
+                  <strong>Address:</strong> {o.addressLine || "—"}<br />
+                  <strong>Thana / District:</strong> {[o.thana, o.district].filter(Boolean).join(", ") || "—"} ·{" "}
+                  <span className="pill pill-opt">{o.deliveryZone === "inside" ? "Inside Dhaka" : "Outside Dhaka"}</span>
+                  {o.deliveryNote && <><br /><strong>Customer's note:</strong> {o.deliveryNote}</>}
+                </div>
+              ) : (
+                <><strong>Address:</strong> {o.address || "—"}<br /></>
+              )}
               <strong>Items:</strong>
               <ul className="list" style={{ marginTop: 6 }}>
                 {o.items.map((it, i) => (
@@ -90,7 +100,7 @@ export default function Orders() {
               <div style={{ marginTop: 6 }}>
                 <strong>Fulfillment:</strong> {o.fulfillmentType === "local" ? "🏍️ Local shop + rider" : "📦 Central courier"}
               </div>
-              {o.fulfillmentType === "central" && o.routingNote && (
+              {o.fulfillmentType === "central" && o.routingNote && o.orderMode !== "form" && (
                 <div className="editor-help" style={{ marginTop: 4 }}>Why not local: {o.routingNote}</div>
               )}
             </div>

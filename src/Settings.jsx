@@ -23,6 +23,40 @@ function TextSetting({ label, hint, value, placeholder, onChange }) {
   );
 }
 
+/** Two clearly explained choices, not a bare dropdown — this switch changes how every order is taken. */
+function OrderModeSetting({ value, onChange }) {
+  const options = [
+    {
+      key: "form",
+      title: "Order form — recommended for launch",
+      note: "The customer fills in name, phone, district, thana and address, and picks inside or outside Dhaka. No location access is needed, and every order comes to your admin team. Simple and dependable.",
+    },
+    {
+      key: "smart",
+      title: "Smart routing (location-based)",
+      note: "Uses the customer's GPS location to find the nearest partner pharmacy with the medicines in stock, and a nearby rider; falls back to your admin team if none is found. Worth switching on once you have enough partner pharmacies and riders.",
+    },
+  ];
+  const current = value || "form";
+  return (
+    <div className="settings-group">
+      <div className="sg-head"><span className="sg-title">How orders are taken</span></div>
+      <div className="sg-body">
+        {options.map((o) => (
+          <label key={o.key} className="chip" style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10, padding: 12, cursor: "pointer", borderColor: current === o.key ? "var(--primary)" : undefined }}>
+            <input type="radio" name="orderMode" checked={current === o.key} onChange={() => onChange(o.key)} style={{ marginTop: 3 }} />
+            <span>
+              <strong>{o.title}</strong>
+              <span className="sg-note" style={{ display: "block", marginTop: 3 }}>{o.note}</span>
+            </span>
+          </label>
+        ))}
+        <p className="sg-note">Takes effect immediately, with no app update. Orders already placed are not affected, and you can switch back and forth safely.</p>
+      </div>
+    </div>
+  );
+}
+
 function NumberSetting({ label, hint, value, unit, min, max, onChange }) {
   return (
     <div className="settings-group">
@@ -69,6 +103,10 @@ export default function Settings() {
           browsePageSize: s.browsePageSize,
           supportWhatsAppNumber: s.supportWhatsAppNumber,
           emergencyContactNumber: s.emergencyContactNumber,
+          orderMode: s.orderMode || "form",
+          courierFeeInsideDhaka: s.courierFeeInsideDhaka,
+          courierFeeOutsideDhaka: s.courierFeeOutsideDhaka,
+          localDeliveryFee: s.localDeliveryFee,
           privacyPolicyUrl: s.privacyPolicyUrl,
           termsUrl: s.termsUrl,
           accountDeletionUrl: s.accountDeletionUrl,
@@ -104,6 +142,10 @@ export default function Settings() {
           browsePageSize: s.browsePageSize,
           supportWhatsAppNumber: s.supportWhatsAppNumber,
           emergencyContactNumber: s.emergencyContactNumber,
+          orderMode: s.orderMode || "form",
+          courierFeeInsideDhaka: s.courierFeeInsideDhaka,
+          courierFeeOutsideDhaka: s.courierFeeOutsideDhaka,
+          localDeliveryFee: s.localDeliveryFee,
           privacyPolicyUrl: s.privacyPolicyUrl,
           termsUrl: s.termsUrl,
           accountDeletionUrl: s.accountDeletionUrl,
@@ -184,6 +226,27 @@ export default function Settings() {
           value={draft.emergencyContactNumber}
           placeholder="01XXXXXXXXX"
           onChange={(v) => setField("emergencyContactNumber", v)}
+        />
+
+        <div className="section-label" style={{ marginTop: 20 }}>Medicine ordering</div>
+        <OrderModeSetting value={draft.orderMode} onChange={(v) => setField("orderMode", v)} />
+        <NumberSetting
+          label="Delivery fee — inside Dhaka"
+          hint="Charged when the customer picks Inside Dhaka on the order form. Shown to the customer before they place the order."
+          value={draft.courierFeeInsideDhaka} unit="৳" min={0} max={2000}
+          onChange={(v) => setField("courierFeeInsideDhaka", v)}
+        />
+        <NumberSetting
+          label="Delivery fee — outside Dhaka"
+          hint="Charged when the customer picks Outside Dhaka. Courier companies typically charge more for outside-Dhaka parcels and often add about 1% for cash on delivery, so keep that in mind when setting this."
+          value={draft.courierFeeOutsideDhaka} unit="৳" min={0} max={2000}
+          onChange={(v) => setField("courierFeeOutsideDhaka", v)}
+        />
+        <NumberSetting
+          label="Delivery fee — local shop and rider (smart routing only)"
+          hint="Only used when 'Smart routing' is selected above and a nearby partner pharmacy fulfils the order."
+          value={draft.localDeliveryFee} unit="৳" min={0} max={2000}
+          onChange={(v) => setField("localDeliveryFee", v)}
         />
 
         <div className="section-label" style={{ marginTop: 20 }}>Legal pages (required for the Play Store)</div>
