@@ -107,6 +107,8 @@ export default function Settings() {
           courierFeeInsideDhaka: s.courierFeeInsideDhaka,
           courierFeeOutsideDhaka: s.courierFeeOutsideDhaka,
           localDeliveryFee: s.localDeliveryFee,
+          minVersionCode: s.minVersionCode ?? 0,
+          updateMessage: s.updateMessage,
           privacyPolicyUrl: s.privacyPolicyUrl,
           termsUrl: s.termsUrl,
           accountDeletionUrl: s.accountDeletionUrl,
@@ -126,6 +128,17 @@ export default function Settings() {
   );
 
   async function save() {
+    // Raising the required version blocks every user below it until they update.
+    // Make that a conscious act, not a stray click.
+    if (Number(draft.minVersionCode) > Number(settings.minVersionCode || 0)) {
+      const n = draft.minVersionCode;
+      const sure = window.confirm(
+        `Everyone running app version ${n - 1} or lower will be BLOCKED until they update from the Play Store.\n\n` +
+        `Only continue if version ${n} is already live for 100% of users in Play Console (not still rolling out, and not only in a testing track).\n\n` +
+        `Require version ${n} now?`
+      );
+      if (!sure) return;
+    }
     setSaving(true);
     try {
       const res = await apiFetch("/api/admin/settings", {
@@ -146,6 +159,8 @@ export default function Settings() {
           courierFeeInsideDhaka: s.courierFeeInsideDhaka,
           courierFeeOutsideDhaka: s.courierFeeOutsideDhaka,
           localDeliveryFee: s.localDeliveryFee,
+          minVersionCode: s.minVersionCode ?? 0,
+          updateMessage: s.updateMessage,
           privacyPolicyUrl: s.privacyPolicyUrl,
           termsUrl: s.termsUrl,
           accountDeletionUrl: s.accountDeletionUrl,
@@ -247,6 +262,42 @@ export default function Settings() {
           hint="Only used when 'Smart routing' is selected above and a nearby partner pharmacy fulfils the order."
           value={draft.localDeliveryFee} unit="৳" min={0} max={2000}
           onChange={(v) => setField("localDeliveryFee", v)}
+        />
+
+        <div className="section-label" style={{ marginTop: 20 }}>App updates (forced)</div>
+        <div className="settings-group">
+          <div className="sg-head"><span className="sg-title">How forced updates work</span></div>
+          <div className="sg-body">
+            <p className="sg-note" style={{ marginTop: 0 }}>
+              Anyone running an app version <strong>below</strong> the number you set here sees a full-screen
+              "Update now" page and cannot use the app until they update from the Play Store.
+              Versions released before this feature existed cannot be blocked.
+            </p>
+            <p className="sg-note"><strong>After every release:</strong></p>
+            <ol className="sg-note" style={{ margin: "4px 0 0 18px", padding: 0 }}>
+              <li>Publish the release in Play Console and wait until it is available to <strong>100%</strong> of users.</li>
+              <li>Update the app on your own phone from the Play Store and open it once.</li>
+              <li>Come back here and enter that release's version code below.</li>
+            </ol>
+            <p className="sg-note">
+              Not sure of the number? Run <code>npx eas-cli build:version:get --platform android</code>, or look at the
+              version code of the release in Play Console. Newest version a real phone has connected with so far:{" "}
+              <strong>{settings.highestSeenVersionCode || 0}</strong> (you can't require a version higher than this).
+            </p>
+          </div>
+        </div>
+        <NumberSetting
+          label="Required version code"
+          hint="Phones below this number are blocked until they update. 0 switches forced updates off. If something goes wrong, lowering this number (or setting 0) frees everyone immediately."
+          value={draft.minVersionCode} min={0}
+          onChange={(v) => setField("minVersionCode", v)}
+        />
+        <TextSetting
+          label="Message on the update screen (optional)"
+          hint="A short extra line shown under the standard text, e.g. why the update matters. Leave empty for the standard text."
+          value={draft.updateMessage}
+          placeholder="e.g. This update fixes ordering problems"
+          onChange={(v) => setField("updateMessage", v)}
         />
 
         <div className="section-label" style={{ marginTop: 20 }}>Legal pages (required for the Play Store)</div>
