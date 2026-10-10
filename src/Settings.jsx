@@ -23,6 +23,40 @@ function TextSetting({ label, hint, value, placeholder, onChange }) {
   );
 }
 
+/** Directory (browse + requests handled by the team) vs the live dispatch system. */
+function CaregiverModeSetting({ value, onChange }) {
+  const options = [
+    {
+      key: "directory",
+      title: "Caregiver directory — recommended for launch",
+      note: "Families browse verified caregivers by district, care type, gender and shift, and book by calling, WhatsApp, or sending a request from the app. Every request comes to the Caregivers tab, where your team confirms it and assigns a caregiver. Caregivers only fill in their care profile — no going online.",
+    },
+    {
+      key: "dispatch",
+      title: "Live dispatch (automatic matching)",
+      note: "The original system: caregivers go online with their location, families request nearby caregivers and the first to accept gets the job, with in-app tracking and commission. Worth switching on once you have many active caregivers in each area.",
+    },
+  ];
+  const current = value || "directory";
+  return (
+    <div className="settings-group">
+      <div className="sg-head"><span className="sg-title">How caregiver bookings work</span></div>
+      <div className="sg-body">
+        {options.map((o) => (
+          <label key={o.key} className="chip" style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10, padding: 12, cursor: "pointer", borderColor: current === o.key ? "var(--teal)" : undefined }}>
+            <input type="radio" name="caregiverMode" checked={current === o.key} onChange={() => onChange(o.key)} style={{ marginTop: 3 }} />
+            <span>
+              <strong>{o.title}</strong>
+              <span className="sg-note" style={{ display: "block", marginTop: 3 }}>{o.note}</span>
+            </span>
+          </label>
+        ))}
+        <p className="sg-note">Takes effect for new app sessions without an app update. Bookings already made are not affected. Caregivers' care profiles and dispatch services are kept separately, so switching back and forth loses nothing.</p>
+      </div>
+    </div>
+  );
+}
+
 /** Two clearly explained choices, not a bare dropdown — this switch changes how every order is taken. */
 function OrderModeSetting({ value, onChange }) {
   const options = [
@@ -104,6 +138,9 @@ export default function Settings() {
           supportWhatsAppNumber: s.supportWhatsAppNumber,
           emergencyContactNumber: s.emergencyContactNumber,
           orderMode: s.orderMode || "form",
+          caregiverMode: s.caregiverMode || "directory",
+          careContactNumber: s.careContactNumber,
+          careWhatsAppNumber: s.careWhatsAppNumber,
           courierFeeInsideDhaka: s.courierFeeInsideDhaka,
           courierFeeOutsideDhaka: s.courierFeeOutsideDhaka,
           localDeliveryFee: s.localDeliveryFee,
@@ -156,6 +193,9 @@ export default function Settings() {
           supportWhatsAppNumber: s.supportWhatsAppNumber,
           emergencyContactNumber: s.emergencyContactNumber,
           orderMode: s.orderMode || "form",
+          caregiverMode: s.caregiverMode || "directory",
+          careContactNumber: s.careContactNumber,
+          careWhatsAppNumber: s.careWhatsAppNumber,
           courierFeeInsideDhaka: s.courierFeeInsideDhaka,
           courierFeeOutsideDhaka: s.courierFeeOutsideDhaka,
           localDeliveryFee: s.localDeliveryFee,
@@ -187,7 +227,24 @@ export default function Settings() {
           </p>
         </div>
 
-        <div className="section-label">Caregiver workload</div>
+        <div className="section-label">Caregiver bookings</div>
+        <CaregiverModeSetting value={draft.caregiverMode} onChange={(v) => setField("caregiverMode", v)} />
+        <TextSetting
+          label="Caregiver booking phone number"
+          hint="The number the caregiver section's Call buttons dial. Leave empty to use the Emergency number below."
+          value={draft.careContactNumber}
+          placeholder="01XXXXXXXXX"
+          onChange={(v) => setField("careContactNumber", v)}
+        />
+        <TextSetting
+          label="Caregiver booking WhatsApp number"
+          hint="Where the caregiver section's WhatsApp buttons open a chat (the message includes the caregiver ID or booking number). Leave empty to use the Call-for-price WhatsApp number below."
+          value={draft.careWhatsAppNumber}
+          placeholder="01XXXXXXXXX"
+          onChange={(v) => setField("careWhatsAppNumber", v)}
+        />
+
+        <div className="section-label" style={{ marginTop: 20 }}>Caregiver workload (live dispatch only)</div>
         <NumberSetting
           label="Jobs at the same time"
           hint="How many jobs one caregiver may hold at once. When they reach this limit, they can't accept another until one is finished or cancelled."
